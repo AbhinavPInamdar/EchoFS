@@ -1,0 +1,29 @@
+# Node.js / Frontend
+/node_modules/
+.next/
+out/
+dist/
+/settings.json
+eslint.config.mjs
+
+
+
+# OS
+.DS_Store
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Go
+*.exe
+*.out
+*.test
+coverage/
+vendor/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
