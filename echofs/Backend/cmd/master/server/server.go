@@ -93,20 +93,16 @@ func NewServer(masterNode *core.MasterNode, logger *log.Logger) *Server {
 func (s *Server) setupRoutes() {
 	api := s.router.PathPrefix("/api/v1").Subrouter()
 	
-	// File operations - new integrated approach
 	api.HandleFunc("/files/upload", s.UploadFile).Methods("POST")
 	api.HandleFunc("/files/{fileId}/download", s.DownloadFile).Methods("GET")
 	
-	// Legacy endpoints (keeping for compatibility)
 	api.HandleFunc("/files/upload/init", s.InitUpload).Methods("POST")
 	api.HandleFunc("/files/upload/chunk", s.UploadChunk).Methods("POST")
 	api.HandleFunc("/files/upload/complete", s.CompleteUpload).Methods("POST")
 	
-	// Worker operations
 	api.HandleFunc("/workers/register", s.RegisterWorker).Methods("POST")
 	api.HandleFunc("/workers/{workerId}/heartbeat", s.WorkerHeartbeat).Methods("POST")
 	
-	// Health check
 	api.HandleFunc("/health", s.HealthCheck).Methods("GET")
 }
 
@@ -115,19 +111,16 @@ func (s *Server) Start(port int) error {
 	return http.ListenAndServe(fmt.Sprintf(":%d", port), s.router)
 }
 
-// New integrated upload handler with chunking and compression
 func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 	s.logger.Println("UploadFile called - integrated chunking and compression")
 	w.Header().Set("Content-Type", "application/json")
 	
-	// Parse multipart form
-	err := r.ParseMultipartForm(32 << 20) // 32MB max memory
+	err := r.ParseMultipartForm(32 << 20)
 	if err != nil {
 		s.sendErrorResponse(w, "Failed to parse multipart form", http.StatusBadRequest)
 		return
 	}
 	
-	// Get file from form
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		s.sendErrorResponse(w, "No file provided", http.StatusBadRequest)
@@ -135,26 +128,22 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 	
-	// Get additional parameters
 	userID := r.FormValue("user_id")
 	if userID == "" {
 		s.sendErrorResponse(w, "user_id is required", http.StatusBadRequest)
 		return
 	}
 	
-	// Generate session and file IDs
 	sessionID := uuid.New().String()
 	fileID := uuid.New().String()
 	
-	// Create temporary directory for processing
 	tempDir := filepath.Join(os.TempDir(), "echofs", sessionID)
 	if err := os.MkdirAll(tempDir, 0755); err != nil {
 		s.sendErrorResponse(w, "Failed to create temp directory", http.StatusInternalServerError)
 		return
 	}
-	defer os.RemoveAll(tempDir) // Cleanup
+	defer os.RemoveAll(tempDir)
 	
-	// Save uploaded file temporarily
 	tempFilePath := filepath.Join(tempDir, header.Filename)
 	tempFile, err := os.Create(tempFilePath)
 	if err != nil {
@@ -162,7 +151,6 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Copy uploaded file to temp location
 	fileSize, err := io.Copy(tempFile, file)
 	if err != nil {
 		tempFile.Close()
@@ -244,7 +232,7 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 		UploadedBy:   userID,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
-		Status:       "completed", // For now, mark as completed
+		Status:       "completed",
 	}
 	
 	response := map[string]interface{}{
@@ -284,7 +272,6 @@ func (s *Server) InitUpload(w http.ResponseWriter, r *http.Request) {
 	
 	mockPlacer := &MockChunkPlacer{}
 	
-	// Assign chunks to workers
 	var chunkAssignments []core.ChunkAssignment
 	for i := 0; i < totalChunks; i++ {
 		workers, err := mockPlacer.PlaceChunk(context.Background(), sessionID, i)

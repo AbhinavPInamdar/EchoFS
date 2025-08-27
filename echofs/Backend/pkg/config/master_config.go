@@ -65,13 +65,12 @@ func LoadMasterConfig() (*MasterConfig, error) {
 		TLSEnabled:          false,
 		MaxGoroutines:       1000,
 		RequestBufferSize:   1024,
-		ChunkSize:           1024 * 1024, // 1MB
+		ChunkSize:           1024 * 1024, 
 		MetricsEnabled:      true,
 		MetricsPort:         9090,
 		HealthPort:          8081,
 	}
 	
-	// Load from environment variables
 	if host := os.Getenv("MASTER_HOST"); host != "" {
 		config.Host = host
 	}
@@ -108,7 +107,6 @@ func LoadMasterConfig() (*MasterConfig, error) {
 		return nil, fmt.Errorf("JWT_SECRET environment variable is required")
 	}
 	
-	// Load numeric configurations
 	if replicationFactor := os.Getenv("REPLICATION_FACTOR"); replicationFactor != "" {
 		if rf, err := strconv.Atoi(replicationFactor); err == nil {
 			config.ReplicationFactor = rf
@@ -121,7 +119,6 @@ func LoadMasterConfig() (*MasterConfig, error) {
 		}
 	}
 	
-	// Load boolean configurations
 	if tlsEnabled := os.Getenv("TLS_ENABLED"); tlsEnabled == "true" {
 		config.TLSEnabled = true
 		config.TLSCertPath = os.Getenv("TLS_CERT_PATH")

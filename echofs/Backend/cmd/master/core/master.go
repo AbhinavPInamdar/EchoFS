@@ -1,5 +1,4 @@
 package core
-// internal/master/core/master.go
 
 
 import (
@@ -44,12 +43,10 @@ type DownloadSession struct {
 	CreatedAt   time.Time `json:"created_at"`
 	ExpiresAt   time.Time `json:"expires_at"`
 	
-	// Internal state
 	chunks      []*ChunkMetadata
 	mutex       sync.RWMutex
 }
 
-// NewMasterNode creates a new master node instance
 func NewMasterNode(config *config.MasterConfig, logger *log.Logger) *MasterNode {
 	ctx, cancel := context.WithCancel(context.Background())
 	
@@ -64,7 +61,6 @@ func NewMasterNode(config *config.MasterConfig, logger *log.Logger) *MasterNode 
 	}
 }
 
-// SetDependencies injects the required dependencies
 func (m *MasterNode) SetDependencies(
 	workerRegistry WorkerRegistry,
 	metadataStore MetadataStore,
@@ -145,7 +141,6 @@ func (m *MasterNode) Stop(ctx context.Context) error {
 	return nil
 }
 
-// IsRunning returns whether the master node is currently running
 func (m *MasterNode) IsRunning() bool {
 	m.runMutex.RLock()
 	defer m.runMutex.RUnlock()
@@ -153,16 +148,14 @@ func (m *MasterNode) IsRunning() bool {
 }
 
 func (m *MasterNode) startBackgroundServices() error {
-	// Start cleanup service
 	m.cleanupTicker = time.NewTicker(m.config.CleanupInterval)
 	m.wg.Add(1)
 	go m.cleanupService()
 	
-	// Start session monitoring
 	m.wg.Add(1)
 	go m.sessionMonitoringService()
 	
-]	if m.config.MetricsEnabled {
+	if m.config.MetricsEnabled {
 		m.wg.Add(1)
 		go m.metricsService()
 	}
@@ -170,7 +163,6 @@ func (m *MasterNode) startBackgroundServices() error {
 	return nil
 }
 
-// cleanupService handles periodic cleanup tasks
 func (m *MasterNode) cleanupService() {
 	defer m.wg.Done()
 	
@@ -184,7 +176,6 @@ func (m *MasterNode) cleanupService() {
 	}
 }
 
-// sessionMonitoringService monitors session health and expiry
 func (m *MasterNode) sessionMonitoringService() {
 	defer m.wg.Done()
 	
@@ -201,7 +192,6 @@ func (m *MasterNode) sessionMonitoringService() {
 	}
 }
 
-// metricsService collects and reports metrics
 func (m *MasterNode) metricsService() {
 	defer m.wg.Done()
 	
@@ -218,36 +208,30 @@ func (m *MasterNode) metricsService() {
 	}
 }
 
-// performCleanup performs periodic cleanup tasks
 func (m *MasterNode) performCleanup() {
 	ctx := context.Background()
 	
-	// Clean up expired sessions
 	if err := m.sessionManager.CleanupExpiredSessions(ctx); err != nil {
 		m.logger.Printf("Error cleaning up expired sessions: %v", err)
 	}
 	
-	// Clean up in-memory sessions
 	m.cleanupExpiredInMemorySessions()
 	
 	m.logger.Println("Cleanup completed")
 }
 
-// cleanupExpiredInMemorySessions removes expired sessions from memory
 func (m *MasterNode) cleanupExpiredInMemorySessions() {
 	now := time.Now()
 	
 	m.sessionsMutex.Lock()
 	defer m.sessionsMutex.Unlock()
 	
-	// Clean upload sessions
 	for sessionID, session := range m.uploadSessions {
 		if now.After(session.ExpiresAt) {
 			delete(m.uploadSessions, sessionID)
 		}
 	}
 	
-	// Clean download sessions
 	for sessionID, session := range m.downloadSessions {
 		if now.After(session.ExpiresAt) {
 			delete(m.downloadSessions, sessionID)
@@ -255,7 +239,6 @@ func (m *MasterNode) cleanupExpiredInMemorySessions() {
 	}
 }
 
-// monitorSessions monitors session health and handles failures
 func (m *MasterNode) monitorSessions() {
 	m.sessionsMutex.RLock()
 	uploadSessions := make([]*UploadSession, 0, len(m.uploadSessions))
@@ -264,7 +247,6 @@ func (m *MasterNode) monitorSessions() {
 	}
 	m.sessionsMutex.RUnlock()
 	
-	// Check upload sessions for timeouts or failures
 	for _, session := range uploadSessions {
 		session.mutex.RLock()
 		status := session.Status
@@ -278,16 +260,13 @@ func (m *MasterNode) monitorSessions() {
 	}
 }
 
-// collectMetrics collects and reports system metrics
 func (m *MasterNode) collectMetrics() {
-	// Get worker count
 	workers, err := m.workerRegistry.GetHealthyWorkers(context.Background())
 	if err != nil {
 		m.logger.Printf("Error getting healthy workers for metrics: %v", err)
 		return
 	}
 	
-	// Get session counts
 	m.sessionsMutex.RLock()
 	uploadSessionCount := len(m.uploadSessions)
 	downloadSessionCount := len(m.downloadSessions)

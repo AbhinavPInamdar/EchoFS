@@ -13,7 +13,6 @@ func synchronizerChunks(chunks []ChunkMeta, metadata map[string]ChunkMeta, uploa
 	}
 	close(chunkChannel)
 
-	// worker pool
 	numWorkers := 4
 	for i := 0; i < numWorkers; i++ {
 		wg.Add(1)
@@ -24,14 +23,12 @@ func synchronizerChunks(chunks []ChunkMeta, metadata map[string]ChunkMeta, uploa
 				oldChunk, exists := metadata[chunk.FileName]
 				mu.Unlock()
 
-				// Only upload if new or changed
 				if !exists || oldChunk.MD5Hash != chunk.MD5Hash {
 					if err := upload.UploadChunk(chunk); err != nil {
 						errChannel <- err
 						return
 					}
 
-					// Update metadata
 					mu.Lock()
 					metadata[chunk.FileName] = chunk
 					mu.Unlock()
@@ -40,11 +37,9 @@ func synchronizerChunks(chunks []ChunkMeta, metadata map[string]ChunkMeta, uploa
 		}()
 	}
 
-	// wait for workers
 	wg.Wait()
 	close(errChannel)
 
-	// check for errors
 	for err := range errChannel {
 		if err != nil {
 			return err

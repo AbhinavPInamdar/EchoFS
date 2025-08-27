@@ -8,7 +8,7 @@ type ChunkMeta struct {
 
 type Config struct {
 	ChunkSize int
-	ServerURL string //is this needed? check later
+	ServerURL string 
 }
 
 type DefaultFileChunker struct {
