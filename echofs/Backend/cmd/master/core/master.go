@@ -1,6 +1,6 @@
 package core
 // internal/master/core/master.go
-package core
+
 
 import (
 	"context"
@@ -12,29 +12,23 @@ import (
 	"echofs/pkg/config"
 )
 
-// MasterNode represents the main master node instance
 type MasterNode struct {
-	// Configuration
 	config *config.MasterConfig
 	logger *log.Logger
 	
-	// Core components
 	workerRegistry WorkerRegistry
 	metadataStore  MetadataStore
 	sessionManager SessionManager
 	chunkPlacer    ChunkPlacer
 	healthChecker  HealthChecker
 	
-	// State management
 	uploadSessions   map[string]*UploadSession
 	downloadSessions map[string]*DownloadSession
 	sessionsMutex    sync.RWMutex
 	
-	// Background workers
 	cleanupTicker    *time.Ticker
 	healthTicker     *time.Ticker
 	
-	// Lifecycle management
 	ctx       context.Context
 	cancel    context.CancelFunc
 	wg        sync.WaitGroup
@@ -42,7 +36,6 @@ type MasterNode struct {
 	runMutex  sync.RWMutex
 }
 
-// DownloadSession represents a file download session
 type DownloadSession struct {
 	SessionID   string    `json:"session_id"`
 	FileID      string    `json:"file_id"`
@@ -86,7 +79,6 @@ func (m *MasterNode) SetDependencies(
 	m.healthChecker = healthChecker
 }
 
-// Start initializes and starts the master node
 func (m *MasterNode) Start(ctx context.Context) error {
 	m.runMutex.Lock()
 	defer m.runMutex.Unlock()
@@ -97,12 +89,10 @@ func (m *MasterNode) Start(ctx context.Context) error {
 	
 	m.logger.Printf("Starting master node on %s:%d", m.config.Host, m.config.Port)
 	
-	// Start background services
 	if err := m.startBackgroundServices(); err != nil {
 		return fmt.Errorf("failed to start background services: %w", err)
 	}
 	
-	// Start health checker
 	if err := m.healthChecker.StartHealthChecking(m.ctx); err != nil {
 		return fmt.Errorf("failed to start health checker: %w", err)
 	}
@@ -113,7 +103,6 @@ func (m *MasterNode) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop gracefully shuts down the master node
 func (m *MasterNode) Stop(ctx context.Context) error {
 	m.runMutex.Lock()
 	defer m.runMutex.Unlock()
@@ -124,10 +113,8 @@ func (m *MasterNode) Stop(ctx context.Context) error {
 	
 	m.logger.Println("Shutting down master node...")
 	
-	// Cancel context to signal shutdown
 	m.cancel()
 	
-	// Stop background services
 	if m.cleanupTicker != nil {
 		m.cleanupTicker.Stop()
 	}
@@ -135,12 +122,10 @@ func (m *MasterNode) Stop(ctx context.Context) error {
 		m.healthTicker.Stop()
 	}
 	
-	// Stop health checker
 	if err := m.healthChecker.StopHealthChecking(ctx); err != nil {
 		m.logger.Printf("Error stopping health checker: %v", err)
 	}
 	
-	// Wait for background goroutines to finish
 	done := make(chan struct{})
 	go func() {
 		m.wg.Wait()
@@ -167,7 +152,6 @@ func (m *MasterNode) IsRunning() bool {
 	return m.running
 }
 
-// startBackgroundServices starts all background services
 func (m *MasterNode) startBackgroundServices() error {
 	// Start cleanup service
 	m.cleanupTicker = time.NewTicker(m.config.CleanupInterval)
@@ -178,8 +162,7 @@ func (m *MasterNode) startBackgroundServices() error {
 	m.wg.Add(1)
 	go m.sessionMonitoringService()
 	
-	// Start metrics collection (if enabled)
-	if m.config.MetricsEnabled {
+]	if m.config.MetricsEnabled {
 		m.wg.Add(1)
 		go m.metricsService()
 	}
@@ -314,7 +297,6 @@ func (m *MasterNode) collectMetrics() {
 		len(workers), uploadSessionCount, downloadSessionCount)
 }
 
-// updateSessionStatus updates the status of a session
 func (m *MasterNode) updateSessionStatus(sessionID string, status SessionStatus) {
 	m.sessionsMutex.Lock()
 	defer m.sessionsMutex.Unlock()
@@ -326,7 +308,6 @@ func (m *MasterNode) updateSessionStatus(sessionID string, status SessionStatus)
 	}
 }
 
-// GetUploadSession retrieves an upload session
 func (m *MasterNode) GetUploadSession(sessionID string) (*UploadSession, bool) {
 	m.sessionsMutex.RLock()
 	defer m.sessionsMutex.RUnlock()
@@ -335,7 +316,6 @@ func (m *MasterNode) GetUploadSession(sessionID string) (*UploadSession, bool) {
 	return session, exists
 }
 
-// AddUploadSession adds a new upload session
 func (m *MasterNode) AddUploadSession(session *UploadSession) {
 	m.sessionsMutex.Lock()
 	defer m.sessionsMutex.Unlock()
@@ -343,7 +323,6 @@ func (m *MasterNode) AddUploadSession(session *UploadSession) {
 	m.uploadSessions[session.SessionID] = session
 }
 
-// RemoveUploadSession removes an upload session
 func (m *MasterNode) RemoveUploadSession(sessionID string) {
 	m.sessionsMutex.Lock()
 	defer m.sessionsMutex.Unlock()

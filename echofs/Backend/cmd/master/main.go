@@ -1,4 +1,3 @@
-// cmd/master/main.go
 package main
 
 import (
@@ -7,8 +6,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
-	"echofs/internal/master/core"
+	"echofs/cmd/master/core"
 	"echofs/pkg/config"
 )
 

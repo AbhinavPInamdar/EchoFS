@@ -8,7 +8,6 @@ func synchronizerChunks(chunks []ChunkMeta, metadata map[string]ChunkMeta, uploa
 	chunkChannel := make(chan ChunkMeta, len(chunks))
 	errChannel := make(chan error, len(chunks))
 
-	// enqueue chunks
 	for _, chunk := range chunks {
 		chunkChannel <- chunk
 	}

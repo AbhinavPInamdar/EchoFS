@@ -63,9 +63,9 @@ type UploadSession struct {
 	UploadChunks    []int              `json:"upload_chunks"` 
 	Status          SessionStatus      `json:"status"`
 	CreatedAt       time.Time          `json:"created_at"`
-	ExpiredAt       time.Time          `json:"expired_at"`
+	ExpiresAt       time.Time          `json:"expires_at"`
 
-	mutex     sync.Mutex            `json:"-"`
+	mutex     sync.RWMutex          `json:"-"`
 	ChunkChan chan ChunkComplete    `json:"-"`
 	ErrorChan chan error            `json:"-"`
 }

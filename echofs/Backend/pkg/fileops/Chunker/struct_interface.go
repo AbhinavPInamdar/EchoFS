@@ -15,6 +15,12 @@ type DefaultFileChunker struct {
 	chunkSize int
 }
 
+func NewDefaultFileChunker(chunkSize int) *DefaultFileChunker {
+	return &DefaultFileChunker{
+		chunkSize: chunkSize,
+	}
+}
+
 type DefaultFileUploader struct {
 	serverURL string
 }
