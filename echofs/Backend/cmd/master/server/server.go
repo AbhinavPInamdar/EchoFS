@@ -171,7 +171,6 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	tempFile.Close()
 	
-	// Step 1: Compress the file
 	s.logger.Printf("Compressing file: %s", header.Filename)
 	compressedFile, err := compressor.Compress(tempFilePath)
 	if err != nil {
@@ -180,17 +179,13 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer compressedFile.Close()
 	
-	// Get compressed file path
 	compressedPath := tempFilePath + ".gz"
 	
-	// Step 2: Chunk the compressed file
 	s.logger.Printf("Chunking compressed file")
-	chunker := &fileops.DefaultFileChunker{}
-	// Note: chunkSize is private field, we'll need to modify the chunker package or use a different approach
+	chunker := fileops.NewDefaultFileChunker(1024 * 1024) 
 	
-	// Use appropriate chunking method based on file size
 	var chunks []fileops.ChunkMeta
-	if fileSize > 100*1024*1024 { // 100MB threshold for large file chunking
+	if fileSize > 100*1024*1024 { 
 		chunks, err = chunker.ChunkLargeFile(compressedPath)
 	} else {
 		chunks, err = chunker.ChunkFile(compressedPath)
@@ -203,7 +198,6 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 	
 	s.logger.Printf("Created %d chunks for file %s", len(chunks), header.Filename)
 	
-	// Step 3: Assign chunks to workers
 	mockPlacer := &MockChunkPlacer{}
 	var chunkAssignments []core.ChunkAssignment
 	
@@ -241,12 +235,11 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 	
 	s.logger.Printf("TODO: Upload %d chunks to workers", len(chunks))
 	
-	// Step 6: Create file metadata
 	fileMetadata := &core.FileMetadata{
 		FileID:       fileID,
 		Size:         fileSize,
 		OriginalName: header.Filename,
-		ChunkSize:    int64(1024 * 1024), // Default chunk size
+		ChunkSize:    int64(1024 * 1024), 
 		TotalChunks:  len(chunks),
 		UploadedBy:   userID,
 		CreatedAt:    time.Now(),
@@ -254,7 +247,6 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 		Status:       "completed", // For now, mark as completed
 	}
 	
-	// Prepare response
 	response := map[string]interface{}{
 		"file_id":     fileID,
 		"session_id":  sessionID,
