@@ -15,12 +15,14 @@ import (
 	"echofs/cmd/master/core"
 	fileops "echofs/pkg/fileops/Chunker"
 	"echofs/pkg/fileops/Compressor"
+	"echofs/internal/storage"
 )
 
 type Server struct {
 	masterNode *core.MasterNode 
 	router     *mux.Router
 	logger     *log.Logger
+	chunkStore *storage.FSChunkStore
 }
 
 
@@ -81,10 +83,16 @@ func (m *MockChunkPlacer) PlaceChunk(ctx context.Context, fileID string, chunkIn
 
 
 func NewServer(masterNode *core.MasterNode, logger *log.Logger) *Server {
+	chunkStore, err := storage.NewFSChunkStore("")
+	if err != nil {
+		logger.Fatalf("Failed to create chunk store: %v", err)
+	}
+	
 	s := &Server{
 		masterNode: masterNode,
 		logger:     logger,
 		router:     mux.NewRouter(),
+		chunkStore: chunkStore,
 	}
 	s.setupRoutes()
 	return s
