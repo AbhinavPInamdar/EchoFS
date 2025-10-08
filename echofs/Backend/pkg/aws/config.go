@@ -3,7 +3,8 @@ package aws
 import (
 	"context"
 	"fmt"
-
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
@@ -17,6 +18,8 @@ type AWSConfig struct {
 	RDSClient      *rds.Client
 	ElastiCache    *elasticache.Client
 	CloudWatch     *cloudwatch.Client
+	S3			   *s3.Client
+	DynamoDB       *dynamodb.Client
 	Region         string
 	DatabaseURL    string
 	RedisEndpoint  string
@@ -31,6 +34,8 @@ func NewAWSConfig(ctx context.Context, region, databaseURL, redisEndpoint string
 	}
 
 	// Create service clients
+	s3Client := s3.NewFromConfig(cfg)
+	dynamodbClient := dynamodb.NewFromConfig(cfg)
 	rdsClient := rds.NewFromConfig(cfg)
 	elastiCacheClient := elasticache.NewFromConfig(cfg)
 	cloudWatchClient := cloudwatch.NewFromConfig(cfg)
@@ -40,6 +45,8 @@ func NewAWSConfig(ctx context.Context, region, databaseURL, redisEndpoint string
 		RDSClient:     rdsClient,
 		ElastiCache:   elastiCacheClient,
 		CloudWatch:    cloudWatchClient,
+		S3:			   s3Client,
+		DynamoDB:      dynamodbClient,
 		Region:        region,
 		DatabaseURL:   databaseURL,
 		RedisEndpoint: redisEndpoint,
@@ -65,12 +72,19 @@ func (a *AWSConfig) ValidateAWSServices(ctx context.Context) error {
 	}
 
 	// Test CloudWatch connectivity
-	_, err = a.CloudWatch.ListMetrics(ctx, &cloudwatch.ListMetricsInput{
-		MaxRecords: aws.Int32(1),
-	})
+	_, err = a.CloudWatch.ListMetrics(ctx, &cloudwatch.ListMetricsInput{})
 	if err != nil {
 		return fmt.Errorf("failed to connect to CloudWatch: %w", err)
 	}
 
+	_, err = a.DynamoDB.ListTables(ctx, &dynamodb.ListTablesInput{})
+	if err != nil {
+		return fmt.Errorf("Failed to connect to DynamoDB: %w", err)
+	}
+
+	_, err = a.S3.ListBuckets(ctx, &s3.ListBucketsInput{})
+	if err != nil {
+		return fmt.Errorf("Failed to connect to S3: %w", err)
+	}
 	return nil
 }
