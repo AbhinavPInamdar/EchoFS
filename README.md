@@ -129,18 +129,15 @@ EchoFS/
 
 ### Environment Variables
 ```bash
-# AWS Configuration
 AWS_ACCESS_KEY_ID=your-access-key
 AWS_SECRET_ACCESS_KEY=your-secret-key
 AWS_REGION=us-east-1
 S3_BUCKET_NAME=echofs-persistent-storage
 
-# Database
 DATABASE_URL=postgres://user:pass@localhost:5432/echofs
 REDIS_ADDR=localhost:6379
 JWT_SECRET=your-jwt-secret
 
-# Server Configuration
 MASTER_PORT=8080
 LOG_LEVEL=info
 ```
@@ -149,18 +146,15 @@ LOG_LEVEL=info
 
 ### Running Tests
 ```bash
-# Backend tests
 cd Backend
 go test ./...
 
-# API integration tests
 ./test/api.sh
 ./test/grpc_integration.sh
 ```
 
 ### Building for Production
 ```bash
-# Build backend
 cd Backend
 go build -o echofs-master cmd/master/server/main.go
 go build -o echofs-worker cmd/worker1/main.go
@@ -172,30 +166,15 @@ npm run build
 
 ## Deployment
 
-### Docker (Recommended)
+### Docker
 ```bash
-# Build and run with Docker Compose
 docker-compose up -d
 ```
 
 ### Manual Deployment
 See individual README files in `Backend/` and `frontend/` for detailed deployment instructions.
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Support
-
-For support and questions:
-- Create an issue on GitHub
-- Check the documentation in individual component README files
-- Review the troubleshooting section in `echofs/Backend/README.md`
