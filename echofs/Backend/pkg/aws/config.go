@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 	"fmt"
+	"os"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -23,6 +24,12 @@ type AWSConfig struct {
 	Region         string
 	DatabaseURL    string
 	RedisEndpoint  string
+	S3BucketName   string
+	DynamoDBTables struct {
+		Files    string
+		Chunks   string
+		Sessions string
+	}
 }
 
 // NewAWSConfig creates a new AWS configuration with all required clients
@@ -40,6 +47,26 @@ func NewAWSConfig(ctx context.Context, region, databaseURL, redisEndpoint string
 	elastiCacheClient := elasticache.NewFromConfig(cfg)
 	cloudWatchClient := cloudwatch.NewFromConfig(cfg)
 
+	// Get S3 bucket name from environment
+	s3BucketName := os.Getenv("S3_BUCKET_NAME")
+	if s3BucketName == "" {
+		s3BucketName = "echofs-chunks-bucket"
+	}
+
+	// Get DynamoDB table names from environment
+	filesTable := os.Getenv("DYNAMODB_FILES_TABLE")
+	if filesTable == "" {
+		filesTable = "echofs-files"
+	}
+	chunksTable := os.Getenv("DYNAMODB_CHUNKS_TABLE")
+	if chunksTable == "" {
+		chunksTable = "echofs-chunks"
+	}
+	sessionsTable := os.Getenv("DYNAMODB_SESSIONS_TABLE")
+	if sessionsTable == "" {
+		sessionsTable = "echofs-sessions"
+	}
+
 	return &AWSConfig{
 		Config:        cfg,
 		RDSClient:     rdsClient,
@@ -50,6 +77,16 @@ func NewAWSConfig(ctx context.Context, region, databaseURL, redisEndpoint string
 		Region:        region,
 		DatabaseURL:   databaseURL,
 		RedisEndpoint: redisEndpoint,
+		S3BucketName:  s3BucketName,
+		DynamoDBTables: struct {
+			Files    string
+			Chunks   string
+			Sessions string
+		}{
+			Files:    filesTable,
+			Chunks:   chunksTable,
+			Sessions: sessionsTable,
+		},
 	}, nil
 }
 

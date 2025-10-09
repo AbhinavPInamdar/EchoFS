@@ -1,0 +1,13 @@
+#!/bin/bash
+export AWS_ACCESS_KEY_ID="your-aws-access-key-here"
+export AWS_SECRET_ACCESS_KEY="your-aws-secret-key-here"
+export AWS_REGION="us-east-1"
+export S3_BUCKET_NAME="echofs-persistent-storage"
+export DYNAMODB_FILES_TABLE="echofs-files-test"
+export DYNAMODB_CHUNKS_TABLE="echofs-chunks-test"
+export DYNAMODB_SESSIONS_TABLE="echofs-sessions-test"
+export DATABASE_URL="postgres://user:password@localhost:5432/echofs?sslmode=disable"
+export REDIS_ADDR="localhost:6379"
+export JWT_SECRET="test-secret-key-for-aws-testing"
+export LOG_LEVEL="info"
+export MASTER_PORT="8080"

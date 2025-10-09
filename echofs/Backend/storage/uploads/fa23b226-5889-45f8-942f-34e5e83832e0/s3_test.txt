@@ -1,0 +1,1 @@
+Testing S3 chunk storage with EchoFS! This file should be chunked and stored in the persistent S3 bucket.

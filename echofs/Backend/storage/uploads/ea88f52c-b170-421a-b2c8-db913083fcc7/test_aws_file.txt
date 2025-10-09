@@ -1,0 +1,1 @@
+This is a test file for EchoFS AWS integration testing. It will be compressed, chunked, and stored in S3 with metadata in DynamoDB.

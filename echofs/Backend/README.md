@@ -43,12 +43,19 @@ A distributed file system backend built with Go, featuring file chunking, compre
 
 ## Configuration
 
-Required environment variables:
+### Required Environment Variables:
 - `DATABASE_URL` - PostgreSQL connection string
 - `REDIS_ADDR` - Redis server address
 - `JWT_SECRET` - JWT signing secret
 
-Optional environment variables:
+### AWS Configuration:
+- `AWS_REGION` - AWS region (default: us-east-1)
+- `S3_BUCKET_NAME` - S3 bucket for chunk storage
+- `DYNAMODB_FILES_TABLE` - DynamoDB table for file metadata
+- `DYNAMODB_CHUNKS_TABLE` - DynamoDB table for chunk metadata
+- `DYNAMODB_SESSIONS_TABLE` - DynamoDB table for upload sessions
+
+### Optional Environment Variables:
 - `MASTER_HOST` - Master server host (default: 0.0.0.0)
 - `MASTER_PORT` - Master server port (default: 8080)
 - `LOG_LEVEL` - Logging level (default: info)
@@ -57,25 +64,22 @@ Optional environment variables:
 
 ## Running the Server
 
-### Development Mode
+### AWS Cloud Mode (Recommended)
 ```bash
-# Set environment variables
-export DATABASE_URL="postgres://user:password@localhost:5432/echofs?sslmode=disable"
-export REDIS_ADDR="localhost:6379"
-export JWT_SECRET="your-secret-key"
-
-# Run the master server
-go run cmd/master/server/main.go cmd/master/server/server.go
+source ./aws_test_config.sh
+./scripts/start_aws.sh
 ```
 
-### Using the provided script
+### Development Mode (Local Storage)
 ```bash
 ./run_master.sh
 ```
 
-### Testing the API
+### Testing
 ```bash
-./test_api.sh
+./test/api.sh              # Test REST API endpoints
+./test/aws_integration.sh  # Test AWS S3 + DynamoDB integration
+./test/workers.sh          # Test worker nodes
 ```
 
 ## Project Structure

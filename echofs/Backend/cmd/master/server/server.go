@@ -1,7 +1,5 @@
 package main
 
-
-
 import (
 	"context"
 	"encoding/json"
@@ -19,13 +17,20 @@ import (
 	fileops "echofs/pkg/fileops/Chunker"
 	"echofs/pkg/fileops/Compressor"
 	"echofs/internal/storage"
+	"echofs/pkg/aws"
+	"echofs/pkg/database"
+	grpcClient "echofs/internal/grpc"
 )
 
 type Server struct {
-	masterNode *core.MasterNode 
-	router     *mux.Router
-	logger     *log.Logger
-	chunkStore *storage.FSChunkStore
+	masterNode     *core.MasterNode 
+	router         *mux.Router
+	logger         *log.Logger
+	chunkStore     *storage.FSChunkStore
+	s3Storage      *storage.S3Storage
+	dynamoDB       *database.DynamoDBService
+	awsConfig      *aws.AWSConfig
+	workerRegistry *grpcClient.WorkerRegistry
 }
 
 
@@ -59,29 +64,7 @@ type APIResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
-type MockWorkerRegistry struct{}
-type MockChunkPlacer struct{}
-type MockSessionManager struct{}
 
-func (m *MockWorkerRegistry) GetHealthyWorkers(ctx context.Context) ([]*core.WorkerNode, error) {
-	return []*core.WorkerNode{
-		{ID: "worker-1", Address: "localhost", Port: 8081, Status: core.WorkerStatusOnline},
-		{ID: "worker-2", Address: "localhost", Port: 8082, Status: core.WorkerStatusOnline},
-		{ID: "worker-3", Address: "localhost", Port: 8083, Status: core.WorkerStatusOnline},
-	}, nil
-}
-
-func (m *MockChunkPlacer) PlaceChunk(ctx context.Context, fileID string, chunkIndex int) ([]string, error) {
-	workers := []string{"worker-1", "worker-2", "worker-3"}
-	replicationFactor := 2
-	
-	var assigned []string
-	for i := 0; i < replicationFactor; i++ {
-		workerIndex := (chunkIndex + i) % len(workers)
-		assigned = append(assigned, workers[workerIndex])
-	}
-	return assigned, nil
-}
 
 
 
@@ -90,12 +73,56 @@ func NewServer(masterNode *core.MasterNode, logger *log.Logger) *Server {
 	if err != nil {
 		logger.Fatalf("Failed to create chunk store: %v", err)
 	}
+
+
+	ctx := context.Background()
+	awsConfig, err := aws.NewAWSConfig(ctx, "us-east-1", "", "")
+	if err != nil {
+		logger.Printf("Warning: Failed to initialize AWS config: %v", err)
+	}
+
+	var s3Storage *storage.S3Storage
+	var dynamoDB *database.DynamoDBService
+
+	if awsConfig != nil {
+		s3Storage = storage.NewS3Storage(awsConfig.S3, awsConfig.S3BucketName)
+		
+		dynamoDB = database.NewDynamoDBService(
+			awsConfig.DynamoDB,
+			awsConfig.DynamoDBTables.Files,
+			awsConfig.DynamoDBTables.Chunks,
+			awsConfig.DynamoDBTables.Sessions,
+		)
+
+		if err := s3Storage.EnsureBucket(ctx); err != nil {
+			logger.Printf("Warning: Failed to ensure S3 bucket: %v", err)
+		}
+
+		if err := dynamoDB.CreateTables(ctx); err != nil {
+			logger.Printf("Warning: Failed to create DynamoDB tables: %v", err)
+		}
+	}
 	
+	workerRegistry := grpcClient.NewWorkerRegistry(logger)
+	if err := workerRegistry.RegisterWorker("worker1", "localhost:9091"); err != nil {
+		logger.Printf("Warning: Failed to register worker1: %v", err)
+	}
+	if err := workerRegistry.RegisterWorker("worker2", "localhost:9092"); err != nil {
+		logger.Printf("Warning: Failed to register worker2: %v", err)
+	}
+	if err := workerRegistry.RegisterWorker("worker3", "localhost:9093"); err != nil {
+		logger.Printf("Warning: Failed to register worker3: %v", err)
+	}
+
 	s := &Server{
-		masterNode: masterNode,
-		logger:     logger,
-		router:     mux.NewRouter(),
-		chunkStore: chunkStore,
+		masterNode:     masterNode,
+		logger:         logger,
+		router:         mux.NewRouter(),
+		chunkStore:     chunkStore,
+		s3Storage:      s3Storage,
+		dynamoDB:       dynamoDB,
+		awsConfig:      awsConfig,
+		workerRegistry: workerRegistry,
 	}
 	s.setupRoutes()
 	return s
@@ -116,12 +143,12 @@ func (s *Server) setupRoutes() {
 	api.HandleFunc("/workers/{workerId}/heartbeat", s.WorkerHeartbeat).Methods("POST")
 	
 	api.HandleFunc("/health", s.HealthCheck).Methods("GET")
+	api.HandleFunc("/workers/health", s.WorkersHealthCheck).Methods("GET")
 }
 
 func (s *Server) Start(port int) error {
 	s.logger.Printf("Starting server on port %d", port)
-	
-	// Add CORS middleware
+
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{"http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://127.0.0.1:3000", "http://127.0.0.1:3001", "http://127.0.0.1:3002"},
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -207,24 +234,71 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 	
 	s.logger.Printf("Created %d chunks for file %s", len(chunks), header.Filename)
 	
-	mockPlacer := &MockChunkPlacer{}
+
 	var chunkAssignments []core.ChunkAssignment
+	workers := s.workerRegistry.GetAllWorkers()
+	workerList := make([]string, 0, len(workers))
+	for workerID := range workers {
+		workerList = append(workerList, workerID)
+	}
+	
+	if len(workerList) == 0 {
+		s.sendErrorResponse(w, "No workers available for chunk storage", http.StatusServiceUnavailable)
+		return
+	}
 	
 	for i, chunk := range chunks {
-		workers, err := mockPlacer.PlaceChunk(context.Background(), fileID, i)
-		if err != nil {
-			s.sendErrorResponse(w, "Failed to assign chunks to workers", http.StatusInternalServerError)
-			return
-		}
+
+		primaryWorker := workerList[i%len(workerList)]
 		
-		assignment := core.ChunkAssignment{
-			ChunkIndex:     chunk.Index,
-			PrimaryWorker:  workers[0],
-			ReplicaWorkers: workers[1:],
-			MD5Expected:    chunk.MD5Hash,
-			Status:         "pending",
+
+		if workerClient, exists := s.workerRegistry.GetWorker(primaryWorker); exists {
+			chunkData, err := os.ReadFile(chunk.FileName)
+			if err != nil {
+				s.logger.Printf("Failed to read chunk file %s: %v", chunk.FileName, err)
+				continue
+			}
+			
+			chunkID := fmt.Sprintf("%s_chunk_%d", fileID, chunk.Index)
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			resp, err := workerClient.StoreChunk(ctx, fileID, chunkID, chunk.Index, chunkData, chunk.MD5Hash)
+			cancel()
+			
+			if err != nil {
+				s.logger.Printf("Failed to store chunk %s on worker %s via gRPC: %v", chunkID, primaryWorker, err)
+
+				assignment := core.ChunkAssignment{
+					ChunkIndex:     chunk.Index,
+					PrimaryWorker:  primaryWorker,
+					ReplicaWorkers: []string{},
+					MD5Expected:    chunk.MD5Hash,
+					Status:         "failed",
+				}
+				chunkAssignments = append(chunkAssignments, assignment)
+				continue
+			}
+			
+			s.logger.Printf("✅ Stored chunk %s on worker %s via gRPC: %s", chunkID, primaryWorker, resp.GetMessage())
+			
+			assignment := core.ChunkAssignment{
+				ChunkIndex:     chunk.Index,
+				PrimaryWorker:  primaryWorker,
+				ReplicaWorkers: []string{},
+				MD5Expected:    chunk.MD5Hash,
+				Status:         "completed",
+			}
+			chunkAssignments = append(chunkAssignments, assignment)
+		} else {
+			s.logger.Printf("❌ Worker %s not found in registry", primaryWorker)
+			assignment := core.ChunkAssignment{
+				ChunkIndex:     chunk.Index,
+				PrimaryWorker:  primaryWorker,
+				ReplicaWorkers: []string{},
+				MD5Expected:    chunk.MD5Hash,
+				Status:         "failed",
+			}
+			chunkAssignments = append(chunkAssignments, assignment)
 		}
-		chunkAssignments = append(chunkAssignments, assignment)
 	}
 	
 	session := &core.UploadSession{
@@ -242,8 +316,7 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 	
 	s.masterNode.AddUploadSession(session)
 	
-	s.logger.Printf("TODO: Upload %d chunks to workers", len(chunks))
-	s.logger.Printf("About to send success response")
+	s.logger.Printf("Successfully uploaded %d chunks to workers via gRPC", len(chunks))
 	
 	fileMetadata := &core.FileMetadata{
 		FileID:       fileID,
@@ -292,20 +365,27 @@ func (s *Server) InitUpload(w http.ResponseWriter, r *http.Request) {
 		totalChunks++
 	}
 	
-	mockPlacer := &MockChunkPlacer{}
+
+	workers := s.workerRegistry.GetAllWorkers()
+	workerList := make([]string, 0, len(workers))
+	for workerID := range workers {
+		workerList = append(workerList, workerID)
+	}
+	
+	if len(workerList) == 0 {
+		s.sendErrorResponse(w, "No workers available", http.StatusServiceUnavailable)
+		return
+	}
 	
 	var chunkAssignments []core.ChunkAssignment
 	for i := 0; i < totalChunks; i++ {
-		workers, err := mockPlacer.PlaceChunk(context.Background(), sessionID, i)
-		if err != nil {
-			s.sendErrorResponse(w, "Failed to assign chunks", http.StatusInternalServerError)
-			return
-		}
+
+		primaryWorker := workerList[i%len(workerList)]
 		
 		assignment := core.ChunkAssignment{
 			ChunkIndex:     i,
-			PrimaryWorker:  workers[0],
-			ReplicaWorkers: workers[1:],
+			PrimaryWorker:  primaryWorker,
+			ReplicaWorkers: []string{},
 			Status:         "pending",
 		}
 		chunkAssignments = append(chunkAssignments, assignment)
@@ -353,10 +433,10 @@ func (s *Server) DownloadFile(w http.ResponseWriter, r *http.Request) {
 	fileId := vars["fileId"]
 	s.logger.Printf("DownloadFile called for fileId: %s", fileId)
 	
-	// Find the file in storage
+
 	storageDir := filepath.Join("./storage/uploads", fileId)
 	
-	// List files in the directory to find the original file
+
 	files, err := os.ReadDir(storageDir)
 	if err != nil {
 		s.sendErrorResponse(w, "File not found", http.StatusNotFound)
@@ -376,7 +456,7 @@ func (s *Server) DownloadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Open and serve the file
+
 	file, err := os.Open(originalFile)
 	if err != nil {
 		s.sendErrorResponse(w, "Failed to open file", http.StatusInternalServerError)
@@ -384,19 +464,19 @@ func (s *Server) DownloadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 	
-	// Get file info
+
 	fileInfo, err := file.Stat()
 	if err != nil {
 		s.sendErrorResponse(w, "Failed to get file info", http.StatusInternalServerError)
 		return
 	}
 	
-	// Set headers for file download
+
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filepath.Base(originalFile)))
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
 	
-	// Stream the file
+
 	io.Copy(w, file)
 }
 
@@ -405,13 +485,13 @@ func (s *Server) ListFiles(w http.ResponseWriter, r *http.Request) {
 	
 	uploadsDir := "./storage/uploads"
 	
-	// Create uploads directory if it doesn't exist
+
 	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
 		s.sendErrorResponse(w, "Failed to access storage", http.StatusInternalServerError)
 		return
 	}
 	
-	// Read all file directories
+
 	dirs, err := os.ReadDir(uploadsDir)
 	if err != nil {
 		s.sendErrorResponse(w, "Failed to list files", http.StatusInternalServerError)
@@ -425,7 +505,7 @@ func (s *Server) ListFiles(w http.ResponseWriter, r *http.Request) {
 			fileId := dir.Name()
 			dirPath := filepath.Join(uploadsDir, fileId)
 			
-			// Read files in this directory
+
 			dirFiles, err := os.ReadDir(dirPath)
 			if err != nil {
 				continue
@@ -445,7 +525,7 @@ func (s *Server) ListFiles(w http.ResponseWriter, r *http.Request) {
 						"uploaded":  fileInfo.ModTime(),
 						"type":      filepath.Ext(file.Name()),
 					})
-					break // Only get the first non-compressed file
+					break
 				}
 			}
 		}
@@ -471,6 +551,39 @@ func (s *Server) WorkerHeartbeat(w http.ResponseWriter, r *http.Request) {
 func (s *Server) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "healthy", "service": "echofs-master"})
+}
+
+func (s *Server) WorkersHealthCheck(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	
+	workers := s.workerRegistry.GetAllWorkers()
+	healthStatus := make(map[string]interface{})
+	
+	for workerID, workerClient := range workers {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		resp, err := workerClient.HealthCheck(ctx)
+		cancel()
+		
+		if err != nil {
+			healthStatus[workerID] = map[string]interface{}{
+				"status": "unhealthy",
+				"error":  err.Error(),
+			}
+		} else {
+			healthStatus[workerID] = map[string]interface{}{
+				"status":    resp.GetStatus(),
+				"healthy":   resp.GetHealthy(),
+				"timestamp": resp.GetTimestamp(),
+			}
+		}
+	}
+	
+	response := map[string]interface{}{
+		"service": "echofs-master",
+		"workers": healthStatus,
+	}
+	
+	json.NewEncoder(w).Encode(response)
 }
 
 func (s *Server) sendSuccessResponse(w http.ResponseWriter, message string, data interface{}) {

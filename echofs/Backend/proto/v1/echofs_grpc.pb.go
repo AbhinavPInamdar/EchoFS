@@ -3,7 +3,6 @@
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v6.32.1
 // source: proto/v1/echofs.proto
-///ran protoc command to bind the contracts defined in .proto
 
 package v1
 
@@ -20,8 +19,264 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	MasterService_UploadFile_FullMethodName     = "/v1.MasterService/UploadFile"
-	MasterService_DownloadFile_FullMethodName   = "/v1.MasterService/DownloadFile"
+	WorkerService_StoreChunk_FullMethodName    = "/v1.WorkerService/StoreChunk"
+	WorkerService_RetrieveChunk_FullMethodName = "/v1.WorkerService/RetrieveChunk"
+	WorkerService_DeleteChunk_FullMethodName   = "/v1.WorkerService/DeleteChunk"
+	WorkerService_HealthCheck_FullMethodName   = "/v1.WorkerService/HealthCheck"
+	WorkerService_GetStatus_FullMethodName     = "/v1.WorkerService/GetStatus"
+)
+
+// WorkerServiceClient is the client API for WorkerService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// Services
+type WorkerServiceClient interface {
+	StoreChunk(ctx context.Context, in *StoreChunkRequest, opts ...grpc.CallOption) (*StoreChunkResponse, error)
+	RetrieveChunk(ctx context.Context, in *RetrieveChunkRequest, opts ...grpc.CallOption) (*RetrieveChunkResponse, error)
+	DeleteChunk(ctx context.Context, in *DeleteChunkRequest, opts ...grpc.CallOption) (*DeleteChunkResponse, error)
+	HealthCheck(ctx context.Context, in *HealthCheckRequest, opts ...grpc.CallOption) (*HealthCheckResponse, error)
+	GetStatus(ctx context.Context, in *WorkerStatusRequest, opts ...grpc.CallOption) (*WorkerStatusResponse, error)
+}
+
+type workerServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewWorkerServiceClient(cc grpc.ClientConnInterface) WorkerServiceClient {
+	return &workerServiceClient{cc}
+}
+
+func (c *workerServiceClient) StoreChunk(ctx context.Context, in *StoreChunkRequest, opts ...grpc.CallOption) (*StoreChunkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StoreChunkResponse)
+	err := c.cc.Invoke(ctx, WorkerService_StoreChunk_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workerServiceClient) RetrieveChunk(ctx context.Context, in *RetrieveChunkRequest, opts ...grpc.CallOption) (*RetrieveChunkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RetrieveChunkResponse)
+	err := c.cc.Invoke(ctx, WorkerService_RetrieveChunk_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workerServiceClient) DeleteChunk(ctx context.Context, in *DeleteChunkRequest, opts ...grpc.CallOption) (*DeleteChunkResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteChunkResponse)
+	err := c.cc.Invoke(ctx, WorkerService_DeleteChunk_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workerServiceClient) HealthCheck(ctx context.Context, in *HealthCheckRequest, opts ...grpc.CallOption) (*HealthCheckResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(HealthCheckResponse)
+	err := c.cc.Invoke(ctx, WorkerService_HealthCheck_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *workerServiceClient) GetStatus(ctx context.Context, in *WorkerStatusRequest, opts ...grpc.CallOption) (*WorkerStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(WorkerStatusResponse)
+	err := c.cc.Invoke(ctx, WorkerService_GetStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// WorkerServiceServer is the server API for WorkerService service.
+// All implementations must embed UnimplementedWorkerServiceServer
+// for forward compatibility.
+//
+// Services
+type WorkerServiceServer interface {
+	StoreChunk(context.Context, *StoreChunkRequest) (*StoreChunkResponse, error)
+	RetrieveChunk(context.Context, *RetrieveChunkRequest) (*RetrieveChunkResponse, error)
+	DeleteChunk(context.Context, *DeleteChunkRequest) (*DeleteChunkResponse, error)
+	HealthCheck(context.Context, *HealthCheckRequest) (*HealthCheckResponse, error)
+	GetStatus(context.Context, *WorkerStatusRequest) (*WorkerStatusResponse, error)
+	mustEmbedUnimplementedWorkerServiceServer()
+}
+
+// UnimplementedWorkerServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedWorkerServiceServer struct{}
+
+func (UnimplementedWorkerServiceServer) StoreChunk(context.Context, *StoreChunkRequest) (*StoreChunkResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StoreChunk not implemented")
+}
+func (UnimplementedWorkerServiceServer) RetrieveChunk(context.Context, *RetrieveChunkRequest) (*RetrieveChunkResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RetrieveChunk not implemented")
+}
+func (UnimplementedWorkerServiceServer) DeleteChunk(context.Context, *DeleteChunkRequest) (*DeleteChunkResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteChunk not implemented")
+}
+func (UnimplementedWorkerServiceServer) HealthCheck(context.Context, *HealthCheckRequest) (*HealthCheckResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method HealthCheck not implemented")
+}
+func (UnimplementedWorkerServiceServer) GetStatus(context.Context, *WorkerStatusRequest) (*WorkerStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetStatus not implemented")
+}
+func (UnimplementedWorkerServiceServer) mustEmbedUnimplementedWorkerServiceServer() {}
+func (UnimplementedWorkerServiceServer) testEmbeddedByValue()                       {}
+
+// UnsafeWorkerServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to WorkerServiceServer will
+// result in compilation errors.
+type UnsafeWorkerServiceServer interface {
+	mustEmbedUnimplementedWorkerServiceServer()
+}
+
+func RegisterWorkerServiceServer(s grpc.ServiceRegistrar, srv WorkerServiceServer) {
+	// If the following call pancis, it indicates UnimplementedWorkerServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&WorkerService_ServiceDesc, srv)
+}
+
+func _WorkerService_StoreChunk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StoreChunkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkerServiceServer).StoreChunk(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkerService_StoreChunk_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkerServiceServer).StoreChunk(ctx, req.(*StoreChunkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkerService_RetrieveChunk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RetrieveChunkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkerServiceServer).RetrieveChunk(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkerService_RetrieveChunk_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkerServiceServer).RetrieveChunk(ctx, req.(*RetrieveChunkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkerService_DeleteChunk_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteChunkRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkerServiceServer).DeleteChunk(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkerService_DeleteChunk_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkerServiceServer).DeleteChunk(ctx, req.(*DeleteChunkRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkerService_HealthCheck_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HealthCheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkerServiceServer).HealthCheck(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkerService_HealthCheck_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkerServiceServer).HealthCheck(ctx, req.(*HealthCheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _WorkerService_GetStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WorkerStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(WorkerServiceServer).GetStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: WorkerService_GetStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(WorkerServiceServer).GetStatus(ctx, req.(*WorkerStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// WorkerService_ServiceDesc is the grpc.ServiceDesc for WorkerService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var WorkerService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "v1.WorkerService",
+	HandlerType: (*WorkerServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "StoreChunk",
+			Handler:    _WorkerService_StoreChunk_Handler,
+		},
+		{
+			MethodName: "RetrieveChunk",
+			Handler:    _WorkerService_RetrieveChunk_Handler,
+		},
+		{
+			MethodName: "DeleteChunk",
+			Handler:    _WorkerService_DeleteChunk_Handler,
+		},
+		{
+			MethodName: "HealthCheck",
+			Handler:    _WorkerService_HealthCheck_Handler,
+		},
+		{
+			MethodName: "GetStatus",
+			Handler:    _WorkerService_GetStatus_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/v1/echofs.proto",
+}
+
+const (
 	MasterService_RegisterWorker_FullMethodName = "/v1.MasterService/RegisterWorker"
 )
 
@@ -29,9 +284,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MasterServiceClient interface {
-	UploadFile(ctx context.Context, in *UploadFileRequest, opts ...grpc.CallOption) (*UploadFileResponse, error)
-	DownloadFile(ctx context.Context, in *DownloadFileRequest, opts ...grpc.CallOption) (*DownloadFileResponse, error)
-	RegisterWorker(ctx context.Context, in *WorkerStatus, opts ...grpc.CallOption) (*RegisterWorkerResponse, error)
+	RegisterWorker(ctx context.Context, in *RegisterWorkerRequest, opts ...grpc.CallOption) (*RegisterWorkerResponse, error)
 }
 
 type masterServiceClient struct {
@@ -42,27 +295,7 @@ func NewMasterServiceClient(cc grpc.ClientConnInterface) MasterServiceClient {
 	return &masterServiceClient{cc}
 }
 
-func (c *masterServiceClient) UploadFile(ctx context.Context, in *UploadFileRequest, opts ...grpc.CallOption) (*UploadFileResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(UploadFileResponse)
-	err := c.cc.Invoke(ctx, MasterService_UploadFile_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *masterServiceClient) DownloadFile(ctx context.Context, in *DownloadFileRequest, opts ...grpc.CallOption) (*DownloadFileResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(DownloadFileResponse)
-	err := c.cc.Invoke(ctx, MasterService_DownloadFile_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *masterServiceClient) RegisterWorker(ctx context.Context, in *WorkerStatus, opts ...grpc.CallOption) (*RegisterWorkerResponse, error) {
+func (c *masterServiceClient) RegisterWorker(ctx context.Context, in *RegisterWorkerRequest, opts ...grpc.CallOption) (*RegisterWorkerResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RegisterWorkerResponse)
 	err := c.cc.Invoke(ctx, MasterService_RegisterWorker_FullMethodName, in, out, cOpts...)
@@ -76,9 +309,7 @@ func (c *masterServiceClient) RegisterWorker(ctx context.Context, in *WorkerStat
 // All implementations must embed UnimplementedMasterServiceServer
 // for forward compatibility.
 type MasterServiceServer interface {
-	UploadFile(context.Context, *UploadFileRequest) (*UploadFileResponse, error)
-	DownloadFile(context.Context, *DownloadFileRequest) (*DownloadFileResponse, error)
-	RegisterWorker(context.Context, *WorkerStatus) (*RegisterWorkerResponse, error)
+	RegisterWorker(context.Context, *RegisterWorkerRequest) (*RegisterWorkerResponse, error)
 	mustEmbedUnimplementedMasterServiceServer()
 }
 
@@ -89,13 +320,7 @@ type MasterServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedMasterServiceServer struct{}
 
-func (UnimplementedMasterServiceServer) UploadFile(context.Context, *UploadFileRequest) (*UploadFileResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UploadFile not implemented")
-}
-func (UnimplementedMasterServiceServer) DownloadFile(context.Context, *DownloadFileRequest) (*DownloadFileResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DownloadFile not implemented")
-}
-func (UnimplementedMasterServiceServer) RegisterWorker(context.Context, *WorkerStatus) (*RegisterWorkerResponse, error) {
+func (UnimplementedMasterServiceServer) RegisterWorker(context.Context, *RegisterWorkerRequest) (*RegisterWorkerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterWorker not implemented")
 }
 func (UnimplementedMasterServiceServer) mustEmbedUnimplementedMasterServiceServer() {}
@@ -119,44 +344,8 @@ func RegisterMasterServiceServer(s grpc.ServiceRegistrar, srv MasterServiceServe
 	s.RegisterService(&MasterService_ServiceDesc, srv)
 }
 
-func _MasterService_UploadFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UploadFileRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MasterServiceServer).UploadFile(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: MasterService_UploadFile_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MasterServiceServer).UploadFile(ctx, req.(*UploadFileRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _MasterService_DownloadFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DownloadFileRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MasterServiceServer).DownloadFile(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: MasterService_DownloadFile_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MasterServiceServer).DownloadFile(ctx, req.(*DownloadFileRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _MasterService_RegisterWorker_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(WorkerStatus)
+	in := new(RegisterWorkerRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -168,7 +357,7 @@ func _MasterService_RegisterWorker_Handler(srv interface{}, ctx context.Context,
 		FullMethod: MasterService_RegisterWorker_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MasterServiceServer).RegisterWorker(ctx, req.(*WorkerStatus))
+		return srv.(MasterServiceServer).RegisterWorker(ctx, req.(*RegisterWorkerRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -181,154 +370,10 @@ var MasterService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*MasterServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "UploadFile",
-			Handler:    _MasterService_UploadFile_Handler,
-		},
-		{
-			MethodName: "DownloadFile",
-			Handler:    _MasterService_DownloadFile_Handler,
-		},
-		{
 			MethodName: "RegisterWorker",
 			Handler:    _MasterService_RegisterWorker_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/v1/echofs.proto",
-}
-
-const (
-	WorkerService_StoreChunk_FullMethodName    = "/v1.WorkerService/StoreChunk"
-	WorkerService_RetrieveChunk_FullMethodName = "/v1.WorkerService/RetrieveChunk"
-)
-
-// WorkerServiceClient is the client API for WorkerService service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type WorkerServiceClient interface {
-	StoreChunk(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[StoreChunkRequest, StoreChunkResponse], error)
-	RetrieveChunk(ctx context.Context, in *RetrieveChunkRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[RetrieveChunkResponse], error)
-}
-
-type workerServiceClient struct {
-	cc grpc.ClientConnInterface
-}
-
-func NewWorkerServiceClient(cc grpc.ClientConnInterface) WorkerServiceClient {
-	return &workerServiceClient{cc}
-}
-
-func (c *workerServiceClient) StoreChunk(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[StoreChunkRequest, StoreChunkResponse], error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &WorkerService_ServiceDesc.Streams[0], WorkerService_StoreChunk_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &grpc.GenericClientStream[StoreChunkRequest, StoreChunkResponse]{ClientStream: stream}
-	return x, nil
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type WorkerService_StoreChunkClient = grpc.ClientStreamingClient[StoreChunkRequest, StoreChunkResponse]
-
-func (c *workerServiceClient) RetrieveChunk(ctx context.Context, in *RetrieveChunkRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[RetrieveChunkResponse], error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &WorkerService_ServiceDesc.Streams[1], WorkerService_RetrieveChunk_FullMethodName, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &grpc.GenericClientStream[RetrieveChunkRequest, RetrieveChunkResponse]{ClientStream: stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type WorkerService_RetrieveChunkClient = grpc.ServerStreamingClient[RetrieveChunkResponse]
-
-// WorkerServiceServer is the server API for WorkerService service.
-// All implementations must embed UnimplementedWorkerServiceServer
-// for forward compatibility.
-type WorkerServiceServer interface {
-	StoreChunk(grpc.ClientStreamingServer[StoreChunkRequest, StoreChunkResponse]) error
-	RetrieveChunk(*RetrieveChunkRequest, grpc.ServerStreamingServer[RetrieveChunkResponse]) error
-	mustEmbedUnimplementedWorkerServiceServer()
-}
-
-// UnimplementedWorkerServiceServer must be embedded to have
-// forward compatible implementations.
-//
-// NOTE: this should be embedded by value instead of pointer to avoid a nil
-// pointer dereference when methods are called.
-type UnimplementedWorkerServiceServer struct{}
-
-func (UnimplementedWorkerServiceServer) StoreChunk(grpc.ClientStreamingServer[StoreChunkRequest, StoreChunkResponse]) error {
-	return status.Errorf(codes.Unimplemented, "method StoreChunk not implemented")
-}
-func (UnimplementedWorkerServiceServer) RetrieveChunk(*RetrieveChunkRequest, grpc.ServerStreamingServer[RetrieveChunkResponse]) error {
-	return status.Errorf(codes.Unimplemented, "method RetrieveChunk not implemented")
-}
-func (UnimplementedWorkerServiceServer) mustEmbedUnimplementedWorkerServiceServer() {}
-func (UnimplementedWorkerServiceServer) testEmbeddedByValue()                       {}
-
-// UnsafeWorkerServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to WorkerServiceServer will
-// result in compilation errors.
-type UnsafeWorkerServiceServer interface {
-	mustEmbedUnimplementedWorkerServiceServer()
-}
-
-func RegisterWorkerServiceServer(s grpc.ServiceRegistrar, srv WorkerServiceServer) {
-	// If the following call pancis, it indicates UnimplementedWorkerServiceServer was
-	// embedded by pointer and is nil.  This will cause panics if an
-	// unimplemented method is ever invoked, so we test this at initialization
-	// time to prevent it from happening at runtime later due to I/O.
-	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
-		t.testEmbeddedByValue()
-	}
-	s.RegisterService(&WorkerService_ServiceDesc, srv)
-}
-
-func _WorkerService_StoreChunk_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(WorkerServiceServer).StoreChunk(&grpc.GenericServerStream[StoreChunkRequest, StoreChunkResponse]{ServerStream: stream})
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type WorkerService_StoreChunkServer = grpc.ClientStreamingServer[StoreChunkRequest, StoreChunkResponse]
-
-func _WorkerService_RetrieveChunk_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(RetrieveChunkRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(WorkerServiceServer).RetrieveChunk(m, &grpc.GenericServerStream[RetrieveChunkRequest, RetrieveChunkResponse]{ServerStream: stream})
-}
-
-// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type WorkerService_RetrieveChunkServer = grpc.ServerStreamingServer[RetrieveChunkResponse]
-
-// WorkerService_ServiceDesc is the grpc.ServiceDesc for WorkerService service.
-// It's only intended for direct use with grpc.RegisterService,
-// and not to be introspected or modified (even as a copy)
-var WorkerService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "v1.WorkerService",
-	HandlerType: (*WorkerServiceServer)(nil),
-	Methods:     []grpc.MethodDesc{},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "StoreChunk",
-			Handler:       _WorkerService_StoreChunk_Handler,
-			ClientStreams: true,
-		},
-		{
-			StreamName:    "RetrieveChunk",
-			Handler:       _WorkerService_RetrieveChunk_Handler,
-			ServerStreams: true,
-		},
-	},
 	Metadata: "proto/v1/echofs.proto",
 }

@@ -1,2 +1,20 @@
 /Design
 /.vscode
+
+# Environment files with secrets
+echofs/Backend/aws_config.sh
+echofs/Backend/.env
+*.env
+
+# AWS credentials
+aws_config.sh
+
+# Storage directories
+echofs/Backend/storage/
+
+# Build artifacts
+echofs/Backend/main
+*.exe
+
+# Logs
+*.log
