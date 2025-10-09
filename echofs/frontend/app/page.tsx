@@ -83,6 +83,18 @@ function App() {
               Home
             </button>
             <button
+              onClick={() => setPage('upload')}
+              className={`font-semibold transition-colors duration-200 hover:text-blue-primary ${page === 'upload' ? 'text-blue-primary' : 'text-gray-600 dark:text-gray-300'}`}
+            >
+              Upload Demo
+            </button>
+            <button
+              onClick={() => setPage('files')}
+              className={`font-semibold transition-colors duration-200 hover:text-blue-primary ${page === 'files' ? 'text-blue-primary' : 'text-gray-600 dark:text-gray-300'}`}
+            >
+              My Files
+            </button>
+            <button
               onClick={() => setPage('hld')}
               className={`font-semibold transition-colors duration-200 hover:text-blue-primary ${page === 'hld' ? 'text-blue-primary' : 'text-gray-600 dark:text-gray-300'}`}
             >
@@ -100,6 +112,8 @@ function App() {
 
       <main>
         {page === 'home' && <HomePage />}
+        {page === 'upload' && <UploadDemoPage />}
+        {page === 'files' && <FilesPage />}
         {page === 'hld' && <HighLevelDesignPage />}
         {page === 'file-manager' && <FileManagementPage />}
       </main>
@@ -237,6 +251,240 @@ const HighLevelDesignPage = () => (
     />
   </div>
 );
+
+const FilesPage = () => {
+  const [files, setFiles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchFiles();
+  }, []);
+
+  const fetchFiles = async () => {
+    try {
+      const response = await fetch('http://localhost:8080/api/v1/files');
+      if (!response.ok) {
+        throw new Error('Failed to fetch files');
+      }
+      const result = await response.json();
+      setFiles(result.data || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load files');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownload = async (fileId: string, fileName: string) => {
+    try {
+      const response = await fetch(`http://localhost:8080/api/v1/files/${fileId}/download`);
+      if (!response.ok) {
+        throw new Error('Download failed');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      alert('Download failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading files...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">My Files</h1>
+
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+              <p className="text-red-700 dark:text-red-400">{error}</p>
+            </div>
+          )}
+
+          {files.length === 0 ? (
+            <div className="text-center py-12">
+              <FileTextIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600 dark:text-gray-400">No files uploaded yet</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {files.map((file: any) => (
+                <div key={file.file_id} className="border rounded-lg p-4 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">{file.name}</h3>
+                    <p className="text-sm text-gray-500">{formatFileSize(file.size)} • {new Date(file.uploaded).toLocaleString()}</p>
+                  </div>
+                  <button
+                    onClick={() => handleDownload(file.file_id, file.name)}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                  >
+                    Download
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const UploadDemoPage = () => {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setUploadResult(null);
+      setError(null);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) return;
+
+    setUploading(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('user_id', 'demo-user');
+
+      const response = await fetch('http://localhost:8080/api/v1/files/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      setUploadResult(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
+      <div className="max-w-2xl mx-auto">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8 text-center">
+            EchoFS Upload Demo
+          </h1>
+
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Select File
+            </label>
+            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
+              <input
+                type="file"
+                onChange={handleFileSelect}
+                className="hidden"
+                id="file-upload"
+              />
+              <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center">
+                <ArrowUpIcon className="h-12 w-12 text-gray-400 mb-4" />
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Click to select a file
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {selectedFile && (
+            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="flex items-center">
+                <FileTextIcon className="h-5 w-5 text-blue-500 mr-2" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {selectedFile.name}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={handleUpload}
+            disabled={!selectedFile || uploading}
+            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
+          >
+            {uploading ? 'Uploading...' : 'Upload File'}
+          </button>
+
+          {error && (
+            <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+              <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
+            </div>
+          )}
+
+          {uploadResult && (
+            <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <p className="text-sm font-medium text-green-700 dark:text-green-400 mb-2">
+                Upload Successful!
+              </p>
+              <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                <p><strong>File ID:</strong> {uploadResult.data?.file_id}</p>
+                <p><strong>Chunks:</strong> {uploadResult.data?.chunks}</p>
+                <p><strong>Compressed:</strong> {uploadResult.data?.compressed ? 'Yes' : 'No'}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+              Backend Status
+            </h3>
+            <p className="text-xs text-gray-600 dark:text-gray-400">
+              Make sure your backend is running: <code>./run_master.sh</code>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const FileManagementPage = () => {
   const [fileContent, setFileContent] = useState('');

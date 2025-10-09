@@ -1,5 +1,7 @@
 package main
 
+//ec2 instance
+
 import (
 	"log"
 	"os"

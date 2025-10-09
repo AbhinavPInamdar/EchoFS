@@ -1,5 +1,7 @@
 package main
 
+
+
 import (
 	"context"
 	"encoding/json"
@@ -12,6 +14,7 @@ import (
 	"path/filepath"
 	"github.com/gorilla/mux"
 	"github.com/google/uuid"
+	"github.com/rs/cors"
 	"echofs/cmd/master/core"
 	fileops "echofs/pkg/fileops/Chunker"
 	"echofs/pkg/fileops/Compressor"
@@ -103,6 +106,7 @@ func (s *Server) setupRoutes() {
 	
 	api.HandleFunc("/files/upload", s.UploadFile).Methods("POST")
 	api.HandleFunc("/files/{fileId}/download", s.DownloadFile).Methods("GET")
+	api.HandleFunc("/files", s.ListFiles).Methods("GET")
 	
 	api.HandleFunc("/files/upload/init", s.InitUpload).Methods("POST")
 	api.HandleFunc("/files/upload/chunk", s.UploadChunk).Methods("POST")
@@ -116,7 +120,17 @@ func (s *Server) setupRoutes() {
 
 func (s *Server) Start(port int) error {
 	s.logger.Printf("Starting server on port %d", port)
-	return http.ListenAndServe(fmt.Sprintf(":%d", port), s.router)
+	
+	// Add CORS middleware
+	c := cors.New(cors.Options{
+		AllowedOrigins: []string{"http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://127.0.0.1:3000", "http://127.0.0.1:3001", "http://127.0.0.1:3002"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"*"},
+		AllowCredentials: true,
+	})
+	
+	handler := c.Handler(s.router)
+	return http.ListenAndServe(fmt.Sprintf(":%d", port), handler)
 }
 
 func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
@@ -145,37 +159,36 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 	sessionID := uuid.New().String()
 	fileID := uuid.New().String()
 	
-	tempDir := filepath.Join(os.TempDir(), "echofs", sessionID)
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
-		s.sendErrorResponse(w, "Failed to create temp directory", http.StatusInternalServerError)
-		return
-	}
-	defer os.RemoveAll(tempDir)
-	
-	tempFilePath := filepath.Join(tempDir, header.Filename)
-	tempFile, err := os.Create(tempFilePath)
-	if err != nil {
-		s.sendErrorResponse(w, "Failed to create temp file", http.StatusInternalServerError)
+	storageDir := filepath.Join("./storage/uploads", fileID)
+	if err := os.MkdirAll(storageDir, 0755); err != nil {
+		s.sendErrorResponse(w, "Failed to create storage directory", http.StatusInternalServerError)
 		return
 	}
 	
-	fileSize, err := io.Copy(tempFile, file)
+	originalFilePath := filepath.Join(storageDir, header.Filename)
+	originalFile, err := os.Create(originalFilePath)
 	if err != nil {
-		tempFile.Close()
+		s.sendErrorResponse(w, "Failed to create storage file", http.StatusInternalServerError)
+		return
+	}
+	
+	fileSize, err := io.Copy(originalFile, file)
+	if err != nil {
+		originalFile.Close()
 		s.sendErrorResponse(w, "Failed to save uploaded file", http.StatusInternalServerError)
 		return
 	}
-	tempFile.Close()
+	originalFile.Close()
 	
 	s.logger.Printf("Compressing file: %s", header.Filename)
-	compressedFile, err := compressor.Compress(tempFilePath)
+	compressedFile, err := compressor.Compress(originalFilePath)
 	if err != nil {
 		s.sendErrorResponse(w, "Failed to compress file", http.StatusInternalServerError)
 		return
 	}
 	defer compressedFile.Close()
 	
-	compressedPath := tempFilePath + ".gz"
+	compressedPath := originalFilePath + ".gz"
 	
 	s.logger.Printf("Chunking compressed file")
 	chunker := fileops.NewDefaultFileChunker(1024 * 1024) 
@@ -230,6 +243,7 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 	s.masterNode.AddUploadSession(session)
 	
 	s.logger.Printf("TODO: Upload %d chunks to workers", len(chunks))
+	s.logger.Printf("About to send success response")
 	
 	fileMetadata := &core.FileMetadata{
 		FileID:       fileID,
@@ -338,8 +352,106 @@ func (s *Server) DownloadFile(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	fileId := vars["fileId"]
 	s.logger.Printf("DownloadFile called for fileId: %s", fileId)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "download - not implemented yet", "fileId": fileId})
+	
+	// Find the file in storage
+	storageDir := filepath.Join("./storage/uploads", fileId)
+	
+	// List files in the directory to find the original file
+	files, err := os.ReadDir(storageDir)
+	if err != nil {
+		s.sendErrorResponse(w, "File not found", http.StatusNotFound)
+		return
+	}
+	
+	var originalFile string
+	for _, file := range files {
+		if !file.IsDir() && filepath.Ext(file.Name()) != ".gz" {
+			originalFile = filepath.Join(storageDir, file.Name())
+			break
+		}
+	}
+	
+	if originalFile == "" {
+		s.sendErrorResponse(w, "Original file not found", http.StatusNotFound)
+		return
+	}
+	
+	// Open and serve the file
+	file, err := os.Open(originalFile)
+	if err != nil {
+		s.sendErrorResponse(w, "Failed to open file", http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+	
+	// Get file info
+	fileInfo, err := file.Stat()
+	if err != nil {
+		s.sendErrorResponse(w, "Failed to get file info", http.StatusInternalServerError)
+		return
+	}
+	
+	// Set headers for file download
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filepath.Base(originalFile)))
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
+	
+	// Stream the file
+	io.Copy(w, file)
+}
+
+func (s *Server) ListFiles(w http.ResponseWriter, r *http.Request) {
+	s.logger.Println("ListFiles called")
+	
+	uploadsDir := "./storage/uploads"
+	
+	// Create uploads directory if it doesn't exist
+	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
+		s.sendErrorResponse(w, "Failed to access storage", http.StatusInternalServerError)
+		return
+	}
+	
+	// Read all file directories
+	dirs, err := os.ReadDir(uploadsDir)
+	if err != nil {
+		s.sendErrorResponse(w, "Failed to list files", http.StatusInternalServerError)
+		return
+	}
+	
+	var files []map[string]interface{}
+	
+	for _, dir := range dirs {
+		if dir.IsDir() {
+			fileId := dir.Name()
+			dirPath := filepath.Join(uploadsDir, fileId)
+			
+			// Read files in this directory
+			dirFiles, err := os.ReadDir(dirPath)
+			if err != nil {
+				continue
+			}
+			
+			for _, file := range dirFiles {
+				if !file.IsDir() && filepath.Ext(file.Name()) != ".gz" {
+					fileInfo, err := file.Info()
+					if err != nil {
+						continue
+					}
+					
+					files = append(files, map[string]interface{}{
+						"file_id":   fileId,
+						"name":      file.Name(),
+						"size":      fileInfo.Size(),
+						"uploaded":  fileInfo.ModTime(),
+						"type":      filepath.Ext(file.Name()),
+					})
+					break // Only get the first non-compressed file
+				}
+			}
+		}
+	}
+	
+	s.sendSuccessResponse(w, "Files listed successfully", files)
 }
 
 func (s *Server) RegisterWorker(w http.ResponseWriter, r *http.Request) {
@@ -367,6 +479,7 @@ func (s *Server) sendSuccessResponse(w http.ResponseWriter, message string, data
 		Message: message,
 		Data:    data,
 	}
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 }
@@ -376,6 +489,8 @@ func (s *Server) sendErrorResponse(w http.ResponseWriter, message string, status
 		Success: false,
 		Message: message,
 	}
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	json.NewEncoder(w).Encode(response)
 }
+
