@@ -1,6 +1,8 @@
 # EchoFS Backend
 
-A distributed file system backend built with Go, featuring file chunking, compression, and distributed storage across worker nodes with S3 backend and gRPC communication.
+Go backend services for the EchoFS distributed file system. This directory contains the master server, worker nodes, and all backend infrastructure.
+
+> For the complete project overview, see the [main README](../README.md).
 
 ## Features
 
@@ -107,21 +109,21 @@ DATABASE_URL="postgres://user:password@localhost:5432/echofs?sslmode=disable" RE
 
 #### Terminal 1 - Start Worker
 ```bash
-cd echofs/Backend
+cd Backend
 source ./aws_test_config.sh
 WORKER_ID=worker1 WORKER_PORT=8091 go run cmd/worker1/main.go cmd/worker1/server.go
 ```
 
 #### Terminal 2 - Start Master
 ```bash
-cd echofs/Backend
+cd Backend
 source ./aws_test_config.sh
 DATABASE_URL="postgres://user:password@localhost:5432/echofs?sslmode=disable" REDIS_ADDR="localhost:6379" JWT_SECRET="test-secret" go run cmd/master/server/main.go cmd/master/server/server.go
 ```
 
 #### Terminal 3 - Start Frontend (Optional)
 ```bash
-cd echofs/frontend
+cd frontend
 npm run dev
 ```
 
