@@ -177,7 +177,7 @@ export default function FilesPage() {
                             File Storage Info
                         </h3>
                         <p className="text-xs text-blue-700 dark:text-blue-300">
-                            Files are stored in: <code>./storage/uploads/{{ file_id }}/</code>
+                            Files are stored in: <code>./storage/uploads/[file_id]/</code>
                         </p>
                         <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
                             Each file is compressed and chunked for distributed storage
