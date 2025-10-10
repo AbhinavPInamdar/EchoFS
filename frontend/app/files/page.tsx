@@ -68,32 +68,17 @@ export default function FilesPage() {
     };
 
     const getFileIcon = (type: string) => {
-        switch (type.toLowerCase()) {
-            case '.pdf':
-                return '📄';
-            case '.xlsx':
-            case '.xls':
-                return '📊';
-            case '.docx':
-            case '.doc':
-                return '📝';
-            case '.jpg':
-            case '.jpeg':
-            case '.png':
-            case '.gif':
-                return '🖼️';
-            default:
-                return '📁';
-        }
+        // Clean minimalistic design - no emojis, just use File icon
+        return <File className="h-4 w-4" />;
     };
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
+            <div className="min-h-screen bg-white py-12 px-6">
                 <div className="max-w-4xl mx-auto">
                     <div className="text-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                        <p className="mt-4 text-gray-600 dark:text-gray-400">Loading files...</p>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto"></div>
+                        <p className="mt-4 text-gray-600">Loading files...</p>
                     </div>
                 </div>
             </div>
@@ -101,58 +86,60 @@ export default function FilesPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
+        <div className="min-h-screen bg-white py-12 px-6">
             <div className="max-w-4xl mx-auto">
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
-                    <div className="flex items-center justify-between mb-8">
-                        <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center">
-                            <HardDrive className="mr-3" />
-                            Uploaded Files
+                <div className="bg-white p-8">
+                    <div className="flex items-center justify-between mb-12">
+                        <h1 className="text-3xl font-light text-black flex items-center">
+                            <HardDrive className="mr-3 h-6 w-6" />
+                            Files
                         </h1>
                         <button
                             onClick={fetchFiles}
-                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                            className="bg-black text-white px-4 py-2 hover:bg-gray-800 transition-colors"
                         >
                             Refresh
                         </button>
                     </div>
 
                     {error && (
-                        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                            <p className="text-red-700 dark:text-red-400">{error}</p>
+                        <div className="mb-6 p-4 bg-gray-50 border border-gray-200">
+                            <p className="text-black">{error}</p>
                         </div>
                     )}
 
                     {files.length === 0 ? (
                         <div className="text-center py-12">
-                            <File className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                            <p className="text-gray-600 dark:text-gray-400 text-lg">No files uploaded yet</p>
-                            <p className="text-gray-500 dark:text-gray-500 text-sm mt-2">
+                            <File className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                            <p className="text-gray-600 text-lg">No files uploaded yet</p>
+                            <p className="text-gray-500 text-sm mt-2">
                                 Go to the Upload Demo to add some files
                             </p>
                         </div>
                     ) : (
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                             {files.map((file) => (
                                 <div
                                     key={file.file_id}
-                                    className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                    className="border border-gray-200 p-4 hover:bg-gray-50 transition-colors"
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center space-x-4">
-                                            <div className="text-2xl">{getFileIcon(file.type)}</div>
+                                            <div className="w-8 h-8 flex items-center justify-center bg-gray-100 text-gray-600">
+                                                {getFileIcon(file.type)}
+                                            </div>
                                             <div>
-                                                <h3 className="font-semibold text-gray-900 dark:text-white">
+                                                <h3 className="font-medium text-black">
                                                     {file.name}
                                                 </h3>
-                                                <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+                                                <div className="flex items-center space-x-4 text-sm text-gray-500">
                                                     <span>{formatFileSize(file.size)}</span>
                                                     <span className="flex items-center">
-                                                        <Calendar className="h-4 w-4 mr-1" />
+                                                        <Calendar className="h-3 w-3 mr-1" />
                                                         {formatDate(file.uploaded)}
                                                     </span>
-                                                    <span className="font-mono text-xs bg-gray-100 dark:bg-gray-600 px-2 py-1 rounded">
-                                                        ID: {file.file_id.substring(0, 8)}...
+                                                    <span className="font-mono text-xs bg-gray-100 px-2 py-1">
+                                                        {file.file_id.substring(0, 8)}...
                                                     </span>
                                                 </div>
                                             </div>
@@ -160,7 +147,7 @@ export default function FilesPage() {
                                         <div className="flex space-x-2">
                                             <button
                                                 onClick={() => handleDownload(file.file_id, file.name)}
-                                                className="flex items-center space-x-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                                                className="flex items-center space-x-1 bg-black text-white px-3 py-2 hover:bg-gray-800 transition-colors"
                                             >
                                                 <Download className="h-4 w-4" />
                                                 <span>Download</span>
@@ -172,14 +159,14 @@ export default function FilesPage() {
                         </div>
                     )}
 
-                    <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                        <h3 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
-                            File Storage Info
+                    <div className="mt-8 p-4 bg-gray-50 border border-gray-200">
+                        <h3 className="text-sm font-medium text-black mb-2">
+                            Storage Information
                         </h3>
-                        <p className="text-xs text-blue-700 dark:text-blue-300">
+                        <p className="text-xs text-gray-600">
                             Files are stored in: <code>./storage/uploads/[file_id]/</code>
                         </p>
-                        <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                        <p className="text-xs text-gray-600 mt-1">
                             Each file is compressed and chunked for distributed storage
                         </p>
                     </div>
