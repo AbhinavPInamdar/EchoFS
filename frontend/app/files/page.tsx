@@ -1,3 +1,10 @@
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Files - EchoFS',
+  description: 'Manage your uploaded files in the EchoFS distributed file system',
+};
+
 "use client"
 import { useState, useEffect } from 'react';
 import { File, Download, Eye, Calendar, HardDrive } from 'lucide-react';
@@ -75,25 +82,26 @@ export default function FilesPage() {
     if (loading) {
         return (
             <div className="min-h-screen bg-white py-12 px-6">
-                <div className="max-w-4xl mx-auto">
-                    <div className="text-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto"></div>
-                        <p className="mt-4 text-gray-600">Loading files...</p>
+                    <div className="max-w-4xl mx-auto">
+                        <div className="text-center">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto"></div>
+                            <p className="mt-4 text-gray-600">Loading files...</p>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </>
         );
     }
 
     return (
         <div className="min-h-screen bg-white py-12 px-6">
-            <div className="max-w-4xl mx-auto">
-                <div className="bg-white p-8">
-                    <div className="flex items-center justify-between mb-12">
-                        <h1 className="text-3xl font-light text-black flex items-center">
-                            <HardDrive className="mr-3 h-6 w-6" />
-                            Files
-                        </h1>
+                <div className="max-w-4xl mx-auto">
+                    <div className="bg-white p-8">
+                        <div className="flex items-center justify-between mb-12">
+                            <h1 className="text-3xl font-light text-black flex items-center">
+                                <HardDrive className="mr-3 h-6 w-6" />
+                                Files
+                            </h1>
                         <button
                             onClick={fetchFiles}
                             className="bg-black text-white px-4 py-2 hover:bg-gray-800 transition-colors"

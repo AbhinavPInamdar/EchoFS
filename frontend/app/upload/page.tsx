@@ -1,3 +1,10 @@
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Upload - EchoFS',
+  description: 'Upload files to the EchoFS adaptive consistency distributed file system',
+};
+
 "use client"
 import { useState } from 'react';
 import { Upload, File, CheckCircle, AlertCircle, Download } from 'lucide-react';

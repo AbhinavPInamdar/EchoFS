@@ -1,3 +1,10 @@
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Architecture - EchoFS',
+  description: 'High-level architecture diagram of the EchoFS adaptive consistency system',
+};
+
 export default function Page() {
     return (
       <div className="p-4">

@@ -30,94 +30,82 @@ function App() {
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         
         :root {
-          --background: #f8f9fa;
-          --foreground: #212529;
-          --blue-primary: #1e40af; /* A darker, more accessible blue */
-          --blue-light: #dbeafe; /* A lighter, more accessible blue */
-          --shadow-color: rgba(0, 0, 0, 0.1);
-        }
-
-        @media (prefers-color-scheme: dark) {
-          :root {
-            --background: #1a202c;
-            --foreground: #e2e8f0;
-            --blue-primary: #3b82f6; /* A brighter blue for contrast on dark bg */
-            --blue-light: #1e40af;
-            --shadow-color: rgba(255, 255, 255, 0.1);
-          }
+          --background: #ffffff;
+          --foreground: #000000;
+          --primary: #000000;
+          --secondary: #333333;
+          --accent: #666666;
+          --light-gray: #f8f8f8;
+          --shadow-color: rgba(0, 0, 0, 0.05);
+          --border-color: #e0e0e0;
         }
 
         body {
           font-family: 'Inter', sans-serif;
           background-color: var(--background);
           color: var(--foreground);
+          line-height: 1.6;
         }
         
-        .shadow-md {
-          box-shadow: 0 4px 6px -1px var(--shadow-color), 0 2px 4px -1px var(--shadow-color);
+        .shadow-minimal {
+          box-shadow: 0 2px 8px var(--shadow-color);
         }
         
-        /* Correcting the visibility issues on the light background */
-        .text-gray-600 {
-            color: #4a5568;
+        .border-minimal {
+          border: 1px solid var(--border-color);
         }
-
-        .dark .text-gray-900 {
-            color: var(--foreground);
-        }
-        .dark .text-gray-600 {
-            color: #d1d5db; /* Lighter gray for better visibility in dark mode */
+        
+        .bg-primary { background-color: var(--primary); }
+        .bg-secondary { background-color: var(--secondary); }
+        .bg-accent { background-color: var(--accent); }
+        .bg-light-gray { background-color: var(--light-gray); }
+        
+        .text-primary { color: var(--primary); }
+        .text-secondary { color: var(--secondary); }
+        .text-accent { color: var(--accent); }
+        
+        .hover-lift:hover {
+          transform: translateY(-2px);
+          transition: transform 0.2s ease;
         }
         `}
       </style>
-      <header className="bg-white dark:bg-gray-800 shadow-md">
-        <nav className="flex items-center justify-between p-6 max-w-7xl mx-auto">
-          <div className="flex items-center space-x-4">
-            <LayoutIcon className="text-blue-primary" />
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">EchoFS</h1>
+      <header className="bg-light-gray border-b border-minimal">
+        <nav className="flex items-center justify-between py-4 px-6 max-w-7xl mx-auto">
+          <div className="flex items-center space-x-3">
+            <LayoutIcon className="text-primary" size={20} />
+            <h1 className="text-lg font-semibold text-primary">EchoFS</h1>
           </div>
-          <div className="flex space-x-6">
+          <div className="flex space-x-8">
             <button
               onClick={() => setPage('home')}
-              className={`font-semibold transition-colors duration-200 hover:text-blue-primary ${page === 'home' ? 'text-blue-primary' : 'text-gray-600 dark:text-gray-300'}`}
+              className={`text-sm font-medium transition-colors duration-200 ${page === 'home' ? 'text-primary' : 'text-accent hover:text-primary'}`}
             >
               Home
             </button>
             <button
               onClick={() => setPage('upload')}
-              className={`font-semibold transition-colors duration-200 hover:text-blue-primary ${page === 'upload' ? 'text-blue-primary' : 'text-gray-600 dark:text-gray-300'}`}
+              className={`text-sm font-medium transition-colors duration-200 ${page === 'upload' ? 'text-primary' : 'text-accent hover:text-primary'}`}
             >
-              Upload Demo
+              Upload
             </button>
             <button
               onClick={() => setPage('files')}
-              className={`font-semibold transition-colors duration-200 hover:text-blue-primary ${page === 'files' ? 'text-blue-primary' : 'text-gray-600 dark:text-gray-300'}`}
+              className={`text-sm font-medium transition-colors duration-200 ${page === 'files' ? 'text-primary' : 'text-accent hover:text-primary'}`}
             >
-              My Files
-            </button>
-            <button
-              onClick={() => setPage('hld')}
-              className={`font-semibold transition-colors duration-200 hover:text-blue-primary ${page === 'hld' ? 'text-blue-primary' : 'text-gray-600 dark:text-gray-300'}`}
-            >
-              High-Level Design
-            </button>
-            <button
-              onClick={() => setPage('file-manager')}
-              className={`font-semibold transition-colors duration-200 hover:text-blue-primary ${page === 'file-manager' ? 'text-blue-primary' : 'text-gray-600 dark:text-gray-300'}`}
-            >
-              File Manager
-            </button>
-            <button
-              onClick={() => setPage('metrics')}
-              className={`font-semibold transition-colors duration-200 hover:text-blue-primary ${page === 'metrics' ? 'text-blue-primary' : 'text-gray-600 dark:text-gray-300'}`}
-            >
-              Metrics
+              Files
             </button>
             <button
               onClick={() => setPage('adaptive-consistency')}
-              className={`font-semibold transition-colors duration-200 hover:text-blue-primary ${page === 'adaptive-consistency' ? 'text-blue-primary' : 'text-gray-600 dark:text-gray-300'}`}
+              className={`text-sm font-medium transition-colors duration-200 ${page === 'adaptive-consistency' ? 'text-primary' : 'text-accent hover:text-primary'}`}
             >
-              Adaptive Consistency
+              Consistency
+            </button>
+            <button
+              onClick={() => setPage('metrics')}
+              className={`text-sm font-medium transition-colors duration-200 ${page === 'metrics' ? 'text-primary' : 'text-accent hover:text-primary'}`}
+            >
+              Metrics
             </button>
           </div>
         </nav>
@@ -145,70 +133,69 @@ const HomePage = () => (
 );
 
 const HeroComponent = () => (
-  <section className="bg-white dark:bg-gray-900 px-6 py-20 rounded-b-xl">
-    <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-      <div>
-        <h1 className="text-5xl font-bold text-gray-900 dark:text-white">
-          <span className="text-blue-primary">Adaptive</span> Consistency File System
+  <section className="px-6 py-24">
+    <div className="max-w-6xl mx-auto">
+      <div className="text-center mb-16">
+        <h1 className="text-6xl font-light text-primary mb-6">
+          Adaptive Consistency
         </h1>
-        <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">
+        <p className="text-xl text-accent max-w-3xl mx-auto leading-relaxed">
           The world's first distributed file system with intelligent consistency that adapts to network conditions in real-time.
         </p>
-        <div className="mt-6 flex gap-4">
-          <button className="bg-blue-primary text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg">
-            Get Started →
-          </button>
-          <button className="border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white px-6 py-3 rounded-lg font-semibold transition-all duration-300 transform hover:bg-gray-100 dark:hover:bg-gray-700">
-            Learn More
-          </button>
-        </div>
-        <div className="mt-10 flex gap-6">
-          <FeatureIcon label="Adaptive Consistency" icon={<ZapIcon size={24} />} />
-          <FeatureIcon label="Real-time Monitoring" icon={<ActivityIcon size={24} />} />
-          <FeatureIcon label="Intelligent Switching" icon={<TrendingUpIcon size={24} />} />
-        </div>
       </div>
-      <div className="shadow-lg rounded-lg bg-gray-100 dark:bg-gray-800 h-64 flex items-center justify-center text-gray-400">
-        [Image placeholder for hero section]
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-20">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
+            <ZapIcon size={24} className="text-white" />
+          </div>
+          <h3 className="text-lg font-medium text-primary mb-2">Adaptive</h3>
+          <p className="text-sm text-accent">Intelligent mode switching</p>
+        </div>
+        
+        <div className="text-center">
+          <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mx-auto mb-4">
+            <ActivityIcon size={24} className="text-white" />
+          </div>
+          <h3 className="text-lg font-medium text-primary mb-2">Real-time</h3>
+          <p className="text-sm text-accent">Live monitoring & metrics</p>
+        </div>
+        
+        <div className="text-center">
+          <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mx-auto mb-4">
+            <TrendingUpIcon size={24} className="text-white" />
+          </div>
+          <h3 className="text-lg font-medium text-primary mb-2">Optimized</h3>
+          <p className="text-sm text-accent">85% latency improvement</p>
+        </div>
       </div>
     </div>
   </section>
 );
 
-type FeatureIconProps = {
-  label: string;
-  icon: React.ReactNode;
-};
 
-const FeatureIcon = ({ label, icon }: FeatureIconProps) => (
-  <div className="flex flex-col items-center text-sm text-gray-700 dark:text-gray-300">
-    <div className="bg-blue-light dark:bg-blue-primary p-3 rounded-full mb-2 text-blue-primary dark:text-white">
-      {icon}
-    </div>
-    {label}
-  </div>
-);
 
 const FeaturesComponent = () => {
   const features = [
-    { title: "Adaptive Consistency", desc: "Dynamically switches between strong and eventual consistency based on network conditions.", icon: <ZapIcon size={24} /> },
-    { title: "Intelligent Mode Switching", desc: "AI-powered decision engine that prevents flapping and optimizes performance.", icon: <ActivityIcon size={24} /> },
-    { title: "Real-time Monitoring", desc: "Comprehensive metrics with Prometheus and Grafana dashboards.", icon: <BarChart3Icon size={24} /> },
-    { title: "Distributed Architecture", desc: "Master-worker design with gRPC communication and fault tolerance.", icon: <HardDriveIcon size={24} /> },
-    { title: "Conflict Resolution", desc: "Automatic conflict detection and resolution with vector clocks.", icon: <ShieldIcon size={24} /> },
-    { title: "Research Validated", desc: "Experimentally proven 85% latency improvement during network stress.", icon: <TrendingUpIcon size={24} /> }
+    { title: "Adaptive Consistency", desc: "Dynamically switches between strong and eventual consistency based on network conditions.", icon: <ZapIcon size={20} /> },
+    { title: "Intelligent Switching", desc: "AI-powered decision engine that prevents flapping and optimizes performance.", icon: <ActivityIcon size={20} /> },
+    { title: "Real-time Monitoring", desc: "Comprehensive metrics with Prometheus and Grafana dashboards.", icon: <BarChart3Icon size={20} /> },
+    { title: "Distributed Architecture", desc: "Master-worker design with gRPC communication and fault tolerance.", icon: <HardDriveIcon size={20} /> },
+    { title: "Conflict Resolution", desc: "Automatic conflict detection and resolution with vector clocks.", icon: <ShieldIcon size={20} /> },
+    { title: "Research Validated", desc: "Experimentally proven 85% latency improvement during network stress.", icon: <TrendingUpIcon size={20} /> }
   ];
 
   return (
-    <section className="bg-blue-light dark:bg-gray-800 py-20 px-6">
-      <div className="max-w-7xl mx-auto">
-        <h2 className="text-3xl font-bold text-center mb-12 text-gray-900 dark:text-white">Powerful Features for Your Files</h2>
-        <div className="grid md:grid-cols-3 gap-8">
+    <section className="bg-light-gray py-20 px-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map(({ title, desc, icon }) => (
-            <div key={title} className="bg-white dark:bg-gray-700 p-8 rounded-xl shadow-md transition-transform duration-300 hover:scale-105">
-              <div className="text-3xl mb-4 text-blue-primary dark:text-blue-300">{icon}</div>
-              <h3 className="font-semibold text-xl text-gray-900 dark:text-white">{title}</h3>
-              <p className="text-gray-900 dark:text-gray-400 mt-2">{desc}</p>
+            <div key={title} className="bg-white border-minimal p-6 hover-lift">
+              <div className="flex items-center mb-3">
+                <div className="text-primary mr-3">{icon}</div>
+                <h3 className="font-medium text-primary">{title}</h3>
+              </div>
+              <p className="text-sm text-accent leading-relaxed">{desc}</p>
             </div>
           ))}
         </div>
@@ -218,38 +205,16 @@ const FeaturesComponent = () => {
 };
 
 const FooterComponent = () => (
-  <footer className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 py-10 px-6">
-    <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-sm text-gray-600 dark:text-gray-400">
-      <div>
-        <h4 className="font-bold mb-2 text-gray-900 dark:text-white">EchoFS</h4>
-        <p>The world's first adaptive consistency distributed file system that intelligently optimizes CAP theorem trade-offs.</p>
+  <footer className="border-t border-minimal py-12 px-6">
+    <div className="max-w-6xl mx-auto text-center">
+      <div className="mb-6">
+        <h4 className="font-medium text-primary mb-2">EchoFS</h4>
+        <p className="text-sm text-accent max-w-2xl mx-auto">
+          The world's first adaptive consistency distributed file system that intelligently optimizes CAP theorem trade-offs.
+        </p>
       </div>
-      <div>
-        <h4 className="font-bold mb-2 text-gray-900 dark:text-white">Company</h4>
-        <ul className="space-y-1">
-          <li>About</li>
-          <li>Careers</li>
-          <li>Blog</li>
-        </ul>
-      </div>
-      <div>
-        <h4 className="font-bold mb-2 text-gray-900 dark:text-white">Help Center</h4>
-        <ul className="space-y-1">
-          <li>Documentation</li>
-          <li>Support</li>
-          <li>Contact Us</li>
-        </ul>
-      </div>
-      <div>
-        <h4 className="font-bold mb-2 text-gray-900 dark:text-white">Legal</h4>
-        <ul className="space-y-1">
-          <li>Privacy Policy</li>
-          <li>Terms of Service</li>
-          <li>Licensing</li>
-        </ul>
-      </div>
+      <p className="text-xs text-accent">© 2025 EchoFS. Research project.</p>
     </div>
-    <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-6">© 2025 EchoFS. All rights reserved.</p>
   </footer>
 );
 
@@ -322,43 +287,43 @@ const FilesPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
+      <div className="min-h-screen bg-white py-12 px-6">
         <div className="max-w-4xl mx-auto text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading files...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading files...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
+    <div className="min-h-screen bg-white py-12 px-6">
       <div className="max-w-4xl mx-auto">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">My Files</h1>
+        <div className="bg-white p-8">
+          <h1 className="text-3xl font-light text-black mb-12">Files</h1>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-              <p className="text-red-700 dark:text-red-400">{error}</p>
+            <div className="mb-6 p-4 bg-gray-50 border border-gray-200">
+              <p className="text-black">{error}</p>
             </div>
           )}
 
           {files.length === 0 ? (
             <div className="text-center py-12">
-              <FileTextIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 dark:text-gray-400">No files uploaded yet</p>
+              <FileTextIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No files uploaded yet</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {files.map((file: any) => (
-                <div key={file.file_id} className="border rounded-lg p-4 flex items-center justify-between">
+                <div key={file.file_id} className="border border-gray-200 p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
                   <div>
-                    <h3 className="font-semibold text-gray-900 dark:text-white">{file.name}</h3>
+                    <h3 className="font-medium text-black">{file.name}</h3>
                     <p className="text-sm text-gray-500">{formatFileSize(file.size)} • {new Date(file.uploaded).toLocaleString()}</p>
                   </div>
                   <button
                     onClick={() => handleDownload(file.file_id, file.name)}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                    className="bg-black text-white px-4 py-2 hover:bg-gray-800 transition-colors"
                   >
                     Download
                   </button>
@@ -419,18 +384,18 @@ const UploadDemoPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
+    <div className="min-h-screen py-12 px-6">
       <div className="max-w-2xl mx-auto">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8 text-center">
-            EchoFS Upload Demo
+        <div className="bg-white border-minimal p-8">
+          <h1 className="text-2xl font-light text-primary mb-8 text-center">
+            Upload Demo
           </h1>
 
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm text-accent mb-2">
               Select File
             </label>
-            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
+            <div className="border-2 border-dashed border-minimal p-8 text-center hover-lift transition-all">
               <input
                 type="file"
                 onChange={handleFileSelect}
@@ -438,8 +403,8 @@ const UploadDemoPage = () => {
                 id="file-upload"
               />
               <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center">
-                <ArrowUpIcon className="h-12 w-12 text-gray-400 mb-4" />
-                <span className="text-sm text-gray-600 dark:text-gray-400">
+                <ArrowUpIcon className="h-8 w-8 text-accent mb-3" />
+                <span className="text-sm text-accent">
                   Click to select a file
                 </span>
               </label>
@@ -447,14 +412,14 @@ const UploadDemoPage = () => {
           </div>
 
           {selectedFile && (
-            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div className="mb-6 p-4 bg-light-gray border-minimal">
               <div className="flex items-center">
-                <FileTextIcon className="h-5 w-5 text-blue-500 mr-2" />
+                <FileTextIcon className="h-4 w-4 text-accent mr-2" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  <p className="text-sm font-medium text-primary">
                     {selectedFile.name}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-accent">
                     {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
                   </p>
                 </div>
@@ -469,13 +434,13 @@ const UploadDemoPage = () => {
             <select
               value={consistencyMode}
               onChange={(e) => setConsistencyMode(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 border-minimal bg-white text-primary"
             >
-              <option value="auto">🧠 Auto (Adaptive)</option>
-              <option value="strong">🔒 Strong Consistency</option>
-              <option value="available">⚡ Available Consistency</option>
+              <option value="auto">Auto (Adaptive)</option>
+              <option value="strong">Strong Consistency</option>
+              <option value="available">Available Consistency</option>
             </select>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-xs text-accent mt-1">
               {consistencyMode === 'auto' && 'System will intelligently choose the best consistency mode'}
               {consistencyMode === 'strong' && 'Guarantees all replicas are synchronized before confirming write'}
               {consistencyMode === 'available' && 'Prioritizes availability over consistency during network issues'}
@@ -485,36 +450,36 @@ const UploadDemoPage = () => {
           <button
             onClick={handleUpload}
             disabled={!selectedFile || uploading}
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
+            className="w-full bg-primary text-white py-3 px-4 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover-lift transition-all"
           >
             {uploading ? 'Uploading...' : 'Upload File'}
           </button>
 
           {error && (
-            <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-              <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
+            <div className="mt-4 p-4 bg-light-gray border-minimal">
+              <p className="text-sm text-primary">{error}</p>
             </div>
           )}
 
           {uploadResult && (
-            <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-              <p className="text-sm font-medium text-green-700 dark:text-green-400 mb-2">
-                Upload Successful!
+            <div className="mt-4 p-4 bg-light-gray border-minimal">
+              <p className="text-sm font-medium text-primary mb-2">
+                Upload Successful
               </p>
-              <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-                <p><strong>File ID:</strong> {uploadResult.data?.file_id}</p>
-                <p><strong>Chunks:</strong> {uploadResult.data?.chunks}</p>
-                <p><strong>Compressed:</strong> {uploadResult.data?.compressed ? 'Yes' : 'No'}</p>
+              <div className="text-xs text-accent space-y-1">
+                <p>File ID: {uploadResult.data?.file_id}</p>
+                <p>Chunks: {uploadResult.data?.chunks}</p>
+                <p>Compressed: {uploadResult.data?.compressed ? 'Yes' : 'No'}</p>
               </div>
             </div>
           )}
 
-          <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
+          <div className="mt-8 p-4 bg-light-gray border-minimal">
+            <h3 className="text-sm font-medium text-primary mb-2">
               Backend Status
             </h3>
-            <p className="text-xs text-gray-600 dark:text-gray-400">
-              Make sure your backend is running: <code>./run_master.sh</code>
+            <p className="text-xs text-accent">
+              Make sure your backend is running: <code>make run-all</code>
             </p>
           </div>
         </div>
@@ -705,37 +670,36 @@ const MetricsPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading metrics...</p>
+      <div className="min-h-screen py-12 px-6">
+        <div className="max-w-6xl mx-auto text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-accent">Loading metrics...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center">
-            <BarChart3Icon className="mr-3" size={32} />
-            EchoFS Metrics Dashboard
+    <div className="min-h-screen py-12 px-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-12 text-center">
+          <h1 className="text-3xl font-light text-primary mb-2">
+            Metrics Dashboard
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-accent">
             Real-time system performance and usage statistics
           </p>
-          <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
+          <p className="text-sm text-accent mt-2">
             Last updated: {lastUpdated.toLocaleTimeString()}
           </p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-            <p className="text-red-700 dark:text-red-400">{error}</p>
+          <div className="mb-6 p-4 bg-light-gray border-minimal">
+            <p className="text-primary">{error}</p>
             <button 
               onClick={fetchMetrics}
-              className="mt-2 text-sm text-red-600 dark:text-red-400 hover:underline"
+              className="mt-2 text-sm text-accent hover:text-primary transition-colors"
             >
               Retry
             </button>
@@ -745,27 +709,27 @@ const MetricsPage = () => {
         {metrics && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* File Operations */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="bg-white border-minimal p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">File Operations</h3>
-                <FileTextIcon className="text-blue-500" size={24} />
+                <h3 className="font-medium text-primary">File Operations</h3>
+                <FileTextIcon className="text-accent" size={20} />
               </div>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Uploads:</span>
-                  <span className="font-semibold text-green-600 dark:text-green-400">
+                  <span className="text-accent text-sm">Uploads:</span>
+                  <span className="font-medium text-primary">
                     {formatNumber(metrics.file_operations.total_uploads)}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Downloads:</span>
-                  <span className="font-semibold text-blue-600 dark:text-blue-400">
+                  <span className="text-accent text-sm">Downloads:</span>
+                  <span className="font-medium text-primary">
                     {formatNumber(metrics.file_operations.total_downloads)}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Deletes:</span>
-                  <span className="font-semibold text-red-600 dark:text-red-400">
+                  <span className="text-accent text-sm">Deletes:</span>
+                  <span className="font-medium text-primary">
                     {formatNumber(metrics.file_operations.total_deletes)}
                   </span>
                 </div>
@@ -773,21 +737,21 @@ const MetricsPage = () => {
             </div>
 
             {/* Performance */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="bg-white border-minimal p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Performance</h3>
-                <ClockIcon className="text-purple-500" size={24} />
+                <h3 className="font-medium text-primary">Performance</h3>
+                <ClockIcon className="text-accent" size={20} />
               </div>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Avg Upload Time:</span>
-                  <span className="font-semibold text-purple-600 dark:text-purple-400">
+                  <span className="text-accent text-sm">Avg Upload:</span>
+                  <span className="font-medium text-primary">
                     {formatTime(metrics.performance.avg_upload_time_seconds)}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Avg Download Time:</span>
-                  <span className="font-semibold text-purple-600 dark:text-purple-400">
+                  <span className="text-accent text-sm">Avg Download:</span>
+                  <span className="font-medium text-primary">
                     {formatTime(metrics.performance.avg_download_time_seconds)}
                   </span>
                 </div>
@@ -795,9 +759,9 @@ const MetricsPage = () => {
             </div>
 
             {/* System Status */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="bg-white border-minimal p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">System Status</h3>
+                <h3 className="font-medium text-gray-900 dark:text-white">System Status</h3>
                 <ActivityIcon className="text-green-500" size={24} />
               </div>
               <div className="space-y-3">
@@ -1011,105 +975,101 @@ const AdaptiveConsistencyPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
+    <div className="min-h-screen py-12 px-6">
       <div className="max-w-6xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-            <ZapIcon className="mr-3 text-blue-500" size={36} />
-            Adaptive Consistency Dashboard
+        <div className="mb-12 text-center">
+          <h1 className="text-4xl font-light text-primary mb-4">
+            Consistency Dashboard
           </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400">
+          <p className="text-accent max-w-2xl mx-auto">
             Monitor and control the world's first adaptive consistency system in real-time
           </p>
         </div>
 
         {/* Controller Status */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <div className="bg-white border-minimal p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Controller Status</h3>
-              <ActivityIcon className="text-blue-500" size={24} />
+              <h3 className="font-medium text-primary">Controller Status</h3>
+              <ActivityIcon className="text-accent" size={20} />
             </div>
             <div className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded-full ${
-                controllerStatus?.status === 'healthy' ? 'bg-green-500' :
-                controllerStatus?.status === 'unhealthy' ? 'bg-yellow-500' : 'bg-red-500'
+              <div className={`w-2 h-2 rounded-full ${
+                controllerStatus?.status === 'healthy' ? 'bg-primary' :
+                controllerStatus?.status === 'unhealthy' ? 'bg-accent' : 'bg-secondary'
               }`}></div>
-              <span className="font-semibold capitalize">
+              <span className="text-sm font-medium text-primary capitalize">
                 {controllerStatus?.status || 'Unknown'}
               </span>
             </div>
             {controllerStatus?.timestamp && (
-              <p className="text-sm text-gray-500 mt-2">
-                Last check: {controllerStatus.timestamp.toLocaleTimeString()}
+              <p className="text-xs text-accent mt-2">
+                {controllerStatus.timestamp.toLocaleTimeString()}
               </p>
             )}
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+          <div className="bg-white border-minimal p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Current Mode</h3>
-              <TrendingUpIcon className="text-purple-500" size={24} />
+              <h3 className="font-medium text-primary">Current Mode</h3>
+              <TrendingUpIcon className="text-accent" size={20} />
             </div>
             {loading ? (
               <div className="animate-pulse">
-                <div className="h-4 bg-gray-300 rounded w-3/4 mb-2"></div>
-                <div className="h-3 bg-gray-300 rounded w-1/2"></div>
+                <div className="h-3 bg-light-gray rounded w-3/4 mb-2"></div>
+                <div className="h-2 bg-light-gray rounded w-1/2"></div>
               </div>
             ) : consistencyMode ? (
               <div>
-                <div className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${getModeColor(consistencyMode.mode)}`}>
+                <div className="inline-block px-2 py-1 bg-light-gray text-xs font-medium text-primary mb-2">
                   {consistencyMode.mode === 'C' ? 'Strong' : 
                    consistencyMode.mode === 'A' ? 'Available' : 
                    consistencyMode.mode}
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                  {getModeDescription(consistencyMode.mode)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Reason: {consistencyMode.reason}
+                <p className="text-xs text-accent mt-1">
+                  {consistencyMode.reason}
                 </p>
               </div>
             ) : (
-              <p className="text-red-500">No data available</p>
+              <p className="text-xs text-accent">No data</p>
             )}
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+          <div className="bg-white border-minimal p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Mode TTL</h3>
-              <ClockIcon className="text-orange-500" size={24} />
+              <h3 className="font-medium text-primary">Mode TTL</h3>
+              <ClockIcon className="text-accent" size={20} />
             </div>
             {consistencyMode ? (
               <div>
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                <div className="text-xl font-light text-primary">
                   {consistencyMode.ttl_seconds}s
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Time until next evaluation
+                <p className="text-xs text-accent">
+                  Next evaluation
                 </p>
               </div>
             ) : (
-              <p className="text-gray-500">--</p>
+              <p className="text-accent">--</p>
             )}
           </div>
         </div>
 
         {/* Control Panel */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
-          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-            Consistency Control Panel
+        <div className="bg-white border-minimal p-6 mb-12">
+          <h3 className="font-medium text-primary mb-6">
+            Control Panel
           </h3>
           
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <div className="mb-6">
+            <label className="block text-sm text-accent mb-2">
               Test Object ID
             </label>
             <input
               type="text"
               value={testObjectId}
               onChange={(e) => setTestObjectId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full px-3 py-2 border-minimal bg-white text-primary text-sm"
               placeholder="Enter object ID to test"
             />
           </div>
@@ -1117,51 +1077,51 @@ const AdaptiveConsistencyPage = () => {
           <div className="flex flex-wrap gap-3 mb-4">
             <button
               onClick={() => setConsistencyHint('Auto')}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-4 py-2 bg-primary text-white text-sm hover-lift transition-all"
             >
-              Set Auto Mode
+              Auto Mode
             </button>
             <button
               onClick={() => setConsistencyHint('Strong')}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              className="px-4 py-2 bg-secondary text-white text-sm hover-lift transition-all"
             >
               Force Strong
             </button>
             <button
               onClick={() => setConsistencyHint('Available')}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              className="px-4 py-2 bg-accent text-white text-sm hover-lift transition-all"
             >
               Force Available
             </button>
           </div>
 
           {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-              <p className="text-red-700 dark:text-red-400 text-sm">{error}</p>
+            <div className="p-3 bg-light-gray border-minimal">
+              <p className="text-primary text-sm">{error}</p>
             </div>
           )}
         </div>
 
         {/* Innovation Highlights */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg shadow-lg p-8 text-white">
-          <h3 className="text-2xl font-bold mb-4">🚀 World's First Adaptive Consistency System</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-gray-50 border border-gray-200 p-12">
+          <h3 className="text-2xl font-light mb-8 text-center text-black">Adaptive Consistency System</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-4xl mx-auto">
             <div>
-              <h4 className="font-semibold mb-2">Key Innovations:</h4>
-              <ul className="space-y-1 text-sm">
-                <li>• Dynamic CAP theorem optimization</li>
-                <li>• Real-time network condition analysis</li>
-                <li>• Intelligent mode switching without flapping</li>
-                <li>• 85% latency reduction during network stress</li>
+              <h4 className="font-medium mb-4 text-black">Key Innovations</h4>
+              <ul className="space-y-2 text-sm text-gray-600 leading-relaxed">
+                <li>Dynamic CAP theorem optimization</li>
+                <li>Real-time network condition analysis</li>
+                <li>Intelligent mode switching without flapping</li>
+                <li>85% latency reduction during network stress</li>
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold mb-2">Research Validated:</h4>
-              <ul className="space-y-1 text-sm">
-                <li>• 5.5x better availability during partitions</li>
-                <li>• 33% faster post-partition recovery</li>
-                <li>• Zero oscillation behavior</li>
-                <li>• Publication-ready experimental proof</li>
+              <h4 className="font-medium mb-4 text-black">Research Validated</h4>
+              <ul className="space-y-2 text-sm text-gray-600 leading-relaxed">
+                <li>5.5x better availability during partitions</li>
+                <li>33% faster post-partition recovery</li>
+                <li>Zero oscillation behavior</li>
+                <li>Publication-ready experimental proof</li>
               </ul>
             </div>
           </div>
