@@ -10,7 +10,13 @@ import {
   ArrowDown as ArrowDownIcon,
   Share2 as ShareIcon,
   FileText as FileTextIcon,
-  Sparkles as SparklesIcon
+  Sparkles as SparklesIcon,
+  BarChart3 as BarChart3Icon,
+  Activity as ActivityIcon,
+  Users as UsersIcon,
+  HardDrive as HardDriveIcon,
+  Clock as ClockIcon,
+  TrendingUp as TrendingUpIcon
 } from 'lucide-react';
 
 
@@ -106,6 +112,12 @@ function App() {
             >
               File Manager
             </button>
+            <button
+              onClick={() => setPage('metrics')}
+              className={`font-semibold transition-colors duration-200 hover:text-blue-primary ${page === 'metrics' ? 'text-blue-primary' : 'text-gray-600 dark:text-gray-300'}`}
+            >
+              Metrics
+            </button>
           </div>
         </nav>
       </header>
@@ -116,6 +128,7 @@ function App() {
         {page === 'files' && <FilesPage />}
         {page === 'hld' && <HighLevelDesignPage />}
         {page === 'file-manager' && <FileManagementPage />}
+        {page === 'metrics' && <MetricsPage />}
       </main>
     </>
   );
@@ -615,6 +628,277 @@ const FileManagementPage = () => {
         )}
       </div>
     </section>
+  );
+};
+
+const MetricsPage = () => {
+  const [metrics, setMetrics] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+
+  useEffect(() => {
+    fetchMetrics();
+    const interval = setInterval(fetchMetrics, 5000); // Update every 5 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchMetrics = async () => {
+    try {
+      const response = await fetch('http://localhost:8080/metrics/dashboard');
+      if (!response.ok) {
+        throw new Error('Failed to fetch metrics');
+      }
+      const data = await response.json();
+      setMetrics(data);
+      setLastUpdated(new Date());
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load metrics');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num.toString();
+  };
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const formatTime = (seconds: number) => {
+    if (seconds < 1) return (seconds * 1000).toFixed(0) + 'ms';
+    return seconds.toFixed(3) + 's';
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
+        <div className="max-w-7xl mx-auto text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading metrics...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center">
+            <BarChart3Icon className="mr-3" size={32} />
+            EchoFS Metrics Dashboard
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Real-time system performance and usage statistics
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
+            Last updated: {lastUpdated.toLocaleTimeString()}
+          </p>
+        </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+            <p className="text-red-700 dark:text-red-400">{error}</p>
+            <button 
+              onClick={fetchMetrics}
+              className="mt-2 text-sm text-red-600 dark:text-red-400 hover:underline"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {metrics && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* File Operations */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">File Operations</h3>
+                <FileTextIcon className="text-blue-500" size={24} />
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Uploads:</span>
+                  <span className="font-semibold text-green-600 dark:text-green-400">
+                    {formatNumber(metrics.file_operations.total_uploads)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Downloads:</span>
+                  <span className="font-semibold text-blue-600 dark:text-blue-400">
+                    {formatNumber(metrics.file_operations.total_downloads)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Deletes:</span>
+                  <span className="font-semibold text-red-600 dark:text-red-400">
+                    {formatNumber(metrics.file_operations.total_deletes)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Performance */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Performance</h3>
+                <ClockIcon className="text-purple-500" size={24} />
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Avg Upload Time:</span>
+                  <span className="font-semibold text-purple-600 dark:text-purple-400">
+                    {formatTime(metrics.performance.avg_upload_time_seconds)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Avg Download Time:</span>
+                  <span className="font-semibold text-purple-600 dark:text-purple-400">
+                    {formatTime(metrics.performance.avg_download_time_seconds)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* System Status */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">System Status</h3>
+                <ActivityIcon className="text-green-500" size={24} />
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Active Connections:</span>
+                  <span className="font-semibold text-green-600 dark:text-green-400">
+                    {metrics.system.active_connections}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Storage Usage:</span>
+                  <span className="font-semibold text-orange-600 dark:text-orange-400">
+                    {formatBytes(metrics.system.storage_usage_bytes)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* gRPC Metrics */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">gRPC Communication</h3>
+                <TrendingUpIcon className="text-indigo-500" size={24} />
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Total Requests:</span>
+                  <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                    {formatNumber(metrics.grpc.total_requests)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Errors:</span>
+                  <span className="font-semibold text-red-600 dark:text-red-400">
+                    {formatNumber(metrics.grpc.total_errors)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Success Rate:</span>
+                  <span className="font-semibold text-green-600 dark:text-green-400">
+                    {metrics.grpc.total_requests > 0 
+                      ? ((metrics.grpc.total_requests - metrics.grpc.total_errors) / metrics.grpc.total_requests * 100).toFixed(1) + '%'
+                      : 'N/A'
+                    }
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* HTTP Metrics */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">HTTP API</h3>
+                <TrendingUpIcon className="text-cyan-500" size={24} />
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Total Requests:</span>
+                  <span className="font-semibold text-cyan-600 dark:text-cyan-400">
+                    {formatNumber(metrics.http.total_requests)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Errors:</span>
+                  <span className="font-semibold text-red-600 dark:text-red-400">
+                    {formatNumber(metrics.http.total_errors)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Success Rate:</span>
+                  <span className="font-semibold text-green-600 dark:text-green-400">
+                    {metrics.http.total_requests > 0 
+                      ? ((metrics.http.total_requests - metrics.http.total_errors) / metrics.http.total_requests * 100).toFixed(1) + '%'
+                      : 'N/A'
+                    }
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Quick Actions</h3>
+                <HardDriveIcon className="text-gray-500" size={24} />
+              </div>
+              <div className="space-y-3">
+                <button
+                  onClick={fetchMetrics}
+                  className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Refresh Metrics
+                </button>
+                <a
+                  href="http://localhost:3001"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors text-center"
+                >
+                  Open Grafana Dashboard
+                </a>
+                <a
+                  href="http://localhost:9090"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition-colors text-center"
+                >
+                  Open Prometheus
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Status Indicator */}
+        <div className="mt-8 text-center">
+          <div className="inline-flex items-center space-x-2 px-4 py-2 bg-green-100 dark:bg-green-900/20 rounded-full">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-sm text-green-700 dark:text-green-400">
+              System Online • Auto-refresh every 5s
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 

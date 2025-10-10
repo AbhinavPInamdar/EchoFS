@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"echofs/internal/metrics"
 	pb "echofs/proto/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -27,6 +28,7 @@ func NewWorkerClient(workerID, address string, logger *log.Logger) (*WorkerClien
 
 	conn, err := grpc.DialContext(ctx, address, 
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(metrics.UnaryClientInterceptor()),
 		grpc.WithBlock())
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to worker %s at %s: %v", workerID, address, err)

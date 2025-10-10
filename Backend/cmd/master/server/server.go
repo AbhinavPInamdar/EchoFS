@@ -13,10 +13,12 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/google/uuid"
 	"github.com/rs/cors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"echofs/cmd/master/core"
 	fileops "echofs/pkg/fileops/Chunker"
 	"echofs/pkg/fileops/Compressor"
 	"echofs/internal/storage"
+	"echofs/internal/metrics"
 	"echofs/pkg/aws"
 	"echofs/pkg/database"
 	grpcClient "echofs/internal/grpc"
@@ -69,6 +71,8 @@ type APIResponse struct {
 
 
 func NewServer(masterNode *core.MasterNode, logger *log.Logger) *Server {
+	// Initialize metrics
+	metrics.InitMetrics()
 	chunkStore, err := storage.NewFSChunkStore("")
 	if err != nil {
 		logger.Fatalf("Failed to create chunk store: %v", err)
@@ -104,13 +108,13 @@ func NewServer(masterNode *core.MasterNode, logger *log.Logger) *Server {
 	}
 	
 	workerRegistry := grpcClient.NewWorkerRegistry(logger)
-	if err := workerRegistry.RegisterWorker("worker1", "localhost:9091"); err != nil {
+	if err := workerRegistry.RegisterWorker("worker1", "localhost:9081"); err != nil {
 		logger.Printf("Warning: Failed to register worker1: %v", err)
 	}
-	if err := workerRegistry.RegisterWorker("worker2", "localhost:9092"); err != nil {
+	if err := workerRegistry.RegisterWorker("worker2", "localhost:9082"); err != nil {
 		logger.Printf("Warning: Failed to register worker2: %v", err)
 	}
-	if err := workerRegistry.RegisterWorker("worker3", "localhost:9093"); err != nil {
+	if err := workerRegistry.RegisterWorker("worker3", "localhost:9083"); err != nil {
 		logger.Printf("Warning: Failed to register worker3: %v", err)
 	}
 
@@ -129,6 +133,13 @@ func NewServer(masterNode *core.MasterNode, logger *log.Logger) *Server {
 }
 
 func (s *Server) setupRoutes() {
+	// Add metrics middleware to all routes
+	s.router.Use(metrics.HTTPMetricsMiddleware)
+	
+	// Metrics endpoints
+	s.router.Handle("/metrics", promhttp.Handler()).Methods("GET")
+	s.router.HandleFunc("/metrics/dashboard", metrics.DashboardHandler).Methods("GET")
+	
 	api := s.router.PathPrefix("/api/v1").Subrouter()
 	
 	api.HandleFunc("/files/upload", s.UploadFile).Methods("POST")
@@ -161,17 +172,24 @@ func (s *Server) Start(port int) error {
 }
 
 func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.logger.Println("UploadFile called - integrated chunking and compression")
 	w.Header().Set("Content-Type", "application/json")
 	
 	err := r.ParseMultipartForm(32 << 20)
 	if err != nil {
+		if metrics.AppMetrics != nil {
+			metrics.AppMetrics.RecordFileError("upload", "parse_form_error")
+		}
 		s.sendErrorResponse(w, "Failed to parse multipart form", http.StatusBadRequest)
 		return
 	}
 	
 	file, header, err := r.FormFile("file")
 	if err != nil {
+		if metrics.AppMetrics != nil {
+			metrics.AppMetrics.RecordFileError("upload", "no_file_provided")
+		}
 		s.sendErrorResponse(w, "No file provided", http.StatusBadRequest)
 		return
 	}
@@ -339,6 +357,12 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 		"metadata":    fileMetadata,
 	}
 	
+	// Record metrics for successful upload
+	if metrics.AppMetrics != nil {
+		duration := time.Since(start)
+		metrics.AppMetrics.RecordFileUpload(fileSize, duration)
+	}
+	
 	s.sendSuccessResponse(w, "File uploaded, compressed, and chunked successfully", response)
 }
 
@@ -429,6 +453,7 @@ func (s *Server) CompleteUpload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) DownloadFile(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	vars := mux.Vars(r)
 	fileId := vars["fileId"]
 	s.logger.Printf("DownloadFile called for fileId: %s", fileId)
@@ -478,6 +503,12 @@ func (s *Server) DownloadFile(w http.ResponseWriter, r *http.Request) {
 	
 
 	io.Copy(w, file)
+	
+	// Record successful download metrics
+	if metrics.AppMetrics != nil {
+		duration := time.Since(start)
+		metrics.AppMetrics.RecordFileDownload(duration)
+	}
 }
 
 func (s *Server) ListFiles(w http.ResponseWriter, r *http.Request) {

@@ -6,6 +6,7 @@ import (
     "net/http"
     "os"
     "github.com/gorilla/mux"
+    "github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func getWorkerID() string {
@@ -71,6 +72,7 @@ func setupRoutes() *mux.Router {
     router.HandleFunc("/chunks/{chunkId}", DeleteChunk).Methods("DELETE")
     router.HandleFunc("/health", HealthCheck).Methods("GET")
     router.HandleFunc("/status", StatusCheck).Methods("GET")
+    router.Handle("/metrics", promhttp.Handler()).Methods("GET")
     
     return router
 

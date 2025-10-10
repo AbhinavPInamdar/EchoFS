@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"echofs/internal/storage"
+	"echofs/internal/metrics"
 	pb "echofs/proto/v1"
 	"google.golang.org/grpc"
 )
@@ -31,8 +32,18 @@ func NewWorkerGRPCServer(workerID string, s3Storage *storage.S3Storage, logger *
 
 
 func (w *WorkerGRPCServer) StoreChunk(ctx context.Context, req *pb.StoreChunkRequest) (*pb.StoreChunkResponse, error) {
+	start := time.Now()
 	w.logger.Printf("gRPC StoreChunk called: fileID=%s, chunkID=%s, index=%d", 
 		req.GetFileId(), req.GetChunkId(), req.GetChunkIndex())
+	
+	// Record chunk processing metrics
+	if metrics.AppMetrics != nil {
+		defer func() {
+			duration := time.Since(start)
+			chunkSize := int64(len(req.GetChunkData()))
+			metrics.AppMetrics.RecordChunkProcessing(chunkSize, duration)
+		}()
+	}
 
 	if w.s3Storage != nil {
 		err := w.s3Storage.StoreChunk(ctx, req.GetFileId(), req.GetChunkId(), int(req.GetChunkIndex()), req.GetChunkData())
@@ -142,7 +153,11 @@ func (w *WorkerGRPCServer) StartGRPCServer(port int) error {
 		return fmt.Errorf("failed to listen on port %d: %v", port, err)
 	}
 
-	s := grpc.NewServer()
+	// Create gRPC server with metrics interceptors
+	s := grpc.NewServer(
+		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor()),
+		grpc.StreamInterceptor(metrics.StreamServerInterceptor()),
+	)
 	pb.RegisterWorkerServiceServer(s, w)
 
 	w.logger.Printf("Worker gRPC server listening on port %d", port)

@@ -1,6 +1,14 @@
 /Design
 /.vscode
 
+# Research Paper Materials (keep separate)
+EchoFS-Research-Paper/
+*Research-Paper*/
+
+# PDF files
+*.pdf
+*.PDF
+
 # Environment files with secrets
 echofs/Backend/aws_config.sh
 echofs/Backend/.env
@@ -11,10 +19,34 @@ aws_config.sh
 
 # Storage directories
 echofs/Backend/storage/
+Backend/storage/
 
 # Build artifacts
 echofs/Backend/main
+Backend/main
+Backend/bin/
 *.exe
 
 # Logs
 *.log
+Backend/logs/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp

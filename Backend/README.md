@@ -1,53 +1,37 @@
 # EchoFS Backend
 
-Go backend services for the EchoFS distributed file system. This directory contains the master server, worker nodes, and all backend infrastructure.
+Distributed file system with adaptive consistency.
 
-> For the complete project overview, see the [main README](../README.md).
+## Quick Start
 
-## Features
+```bash
+# Build all components
+make build
 
-- **HTTP REST API** for file operations
-- **File Chunking** with configurable chunk sizes
-- **File Compression** using gzip
-- **Distributed Storage** with AWS S3 backend
-- **gRPC Communication** between master and workers
-- **Session Management** for upload tracking
-- **Health Monitoring** for worker nodes
-- **AWS Integration** with S3 and DynamoDB
+# Start monitoring stack
+docker-compose -f monitoring/docker-compose.yml up -d
+
+# Start services
+./bin/consistency-controller --port=8082 &
+./bin/master &
+./bin/worker1 &
+```
 
 ## Architecture
 
-### Master Node
-- Handles client requests via HTTP API
-- Manages file metadata and chunk placement
-- Coordinates with worker nodes via gRPC
-- Tracks upload sessions
-- Stores metadata in DynamoDB
-
-### Worker Nodes
-- Store file chunks in AWS S3
-- Handle chunk operations via gRPC
-- Provide health status to master
+- **Master**: HTTP API server, file coordination
+- **Workers**: Distributed storage nodes with gRPC
+- **Consistency Controller**: Adaptive consistency management
+- **Monitoring**: Prometheus + Grafana metrics
 
 ## API Endpoints
 
-### File Operations
-- `POST /api/v1/files/upload` - Upload a file (with chunking and compression)
-- `GET /api/v1/files/{fileId}/download` - Download a file
-- `POST /api/v1/files/upload/init` - Initialize chunked upload
-- `POST /api/v1/files/upload/chunk` - Upload individual chunk
-- `POST /api/v1/files/upload/complete` - Complete chunked upload
-
-### Worker Management
-- `POST /api/v1/workers/register` - Register a new worker
-- `POST /api/v1/workers/{workerId}/heartbeat` - Worker heartbeat
-
-### System
+- `POST /api/v1/files/upload` - Upload file
+- `GET /api/v1/files/{id}/download` - Download file
 - `GET /api/v1/health` - Health check
+- `GET /metrics` - Prometheus metrics
 
 ## Configuration
-
-### Required Environment Variables:
 - `DATABASE_URL` - PostgreSQL connection string
 - `REDIS_ADDR` - Redis server address
 - `JWT_SECRET` - JWT signing secret
