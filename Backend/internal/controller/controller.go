@@ -95,7 +95,7 @@ func (c *Controller) Start(ctx context.Context) {
 }
 
 func (c *Controller) evaluateAllObjects(ctx context.Context) {
-	// Get all objects from store
+
 	objects := c.store.GetAllObjects()
 	
 	for _, obj := range objects {
@@ -104,20 +104,19 @@ func (c *Controller) evaluateAllObjects(ctx context.Context) {
 }
 
 func (c *Controller) evaluateObject(ctx context.Context, obj *metadata.ObjectMeta) {
-	// Gather metrics for this object
+
 	objMetrics, err := c.gatherObjectMetrics(ctx, obj.FileID)
 	if err != nil {
 		log.Printf("Failed to gather metrics for object %s: %v", obj.FileID, err)
 		return
 	}
 
-	// Get current mode state
 	c.mu.Lock()
 	currentState, exists := c.objectModes[obj.FileID]
 	if !exists {
 		currentState = &ObjectModeState{
 			ObjectID:    obj.FileID,
-			CurrentMode: "C", // Default to strong consistency
+			CurrentMode: "C",
 			LastChange:  time.Now(),
 			TTL:         30,
 			Reason:      "initial",
@@ -126,24 +125,20 @@ func (c *Controller) evaluateObject(ctx context.Context, obj *metadata.ObjectMet
 	}
 	c.mu.Unlock()
 
-	// Check if in cooldown period
 	if time.Now().Before(currentState.CooldownUntil) {
 		return
 	}
 
-	// Evaluate policy
 	recommendedMode := c.policy.DecideMode(*obj, objMetrics, currentState)
 
-	// Handle mode transitions with hysteresis
 	if recommendedMode != currentState.CurrentMode {
 		currentState.ConsecutiveVotes++
 		
-		// Require 3 consecutive votes to change mode (hysteresis)
 		if currentState.ConsecutiveVotes >= 3 {
 			c.transitionMode(obj, currentState, recommendedMode, objMetrics)
 		}
 	} else {
-		currentState.ConsecutiveVotes = 0 // Reset vote counter
+		currentState.ConsecutiveVotes = 0
 	}
 }
 
@@ -153,27 +148,22 @@ func (c *Controller) transitionMode(obj *metadata.ObjectMeta, state *ObjectModeS
 	log.Printf("Transitioning object %s from %s to %s (reason: %s)", 
 		obj.FileID, oldMode, newMode, metrics.TransitionReason)
 
-	// Update state
 	state.CurrentMode = newMode
 	state.LastChange = time.Now()
 	state.Reason = metrics.TransitionReason
 	state.ConsecutiveVotes = 0
 	
-	// Set cooldown period (prevent flapping)
 	state.CooldownUntil = time.Now().Add(30 * time.Second)
 
-	// Update object metadata
 	obj.CurrentMode = newMode
 	obj.LastModeChange = time.Now()
 	c.store.UpdateObject(obj)
 
-	// Emit metrics
 	c.emitModeChangeMetric(obj.FileID, oldMode, newMode, metrics.TransitionReason)
 }
 
 func (c *Controller) gatherObjectMetrics(ctx context.Context, objectID string) (ObjectMetrics, error) {
-	// This would query Prometheus for object-specific metrics
-	// For now, return mock data
+
 	return ObjectMetrics{
 		PartitionRisk:     0.1,
 		ReplicationLag:    50 * time.Millisecond,
@@ -187,12 +177,10 @@ func (c *Controller) gatherObjectMetrics(ctx context.Context, objectID string) (
 }
 
 func (c *Controller) emitModeChangeMetric(objectID, fromMode, toMode, reason string) {
-	// This would emit to Prometheus
+
 	log.Printf("METRIC: echofs_object_mode_change_total{object=%s,from=%s,to=%s,reason=%s} +1",
 		objectID, fromMode, toMode, reason)
 }
-
-// HTTP Handlers
 
 func (c *Controller) HandleGetMode(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -211,7 +199,7 @@ func (c *Controller) HandleGetMode(w http.ResponseWriter, r *http.Request) {
 	c.mu.RUnlock()
 
 	if !exists {
-		// Return default mode for unknown objects
+
 		state = &ObjectModeState{
 			ObjectID:    objectID,
 			CurrentMode: "C",
@@ -248,7 +236,6 @@ func (c *Controller) HandleSetHint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate hint value
 	validHints := map[string]bool{
 		"Auto":      true,
 		"Strong":    true,
@@ -259,7 +246,6 @@ func (c *Controller) HandleSetHint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update object metadata with hint
 	obj := c.store.GetObject(req.ObjectID)
 	if obj == nil {
 		http.Error(w, "Object not found", http.StatusNotFound)
@@ -279,23 +265,19 @@ func (c *Controller) HandleSetHint(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-
-
 func (c *Controller) evaluateObjectWithConfirmation(ctx context.Context, obj *metadata.ObjectMeta) {
-	// Gather metrics for this object
+
 	objMetrics, err := c.gatherObjectMetrics(ctx, obj.FileID)
 	if err != nil {
 		log.Printf("Failed to gather metrics for object %s: %v", obj.FileID, err)
 		return
 	}
 	
-	// Check for emergency conditions
 	if objMetrics.PartitionRisk > c.config.EmergencyThreshold {
 		c.handleEmergencyCondition(obj, objMetrics)
 		return
 	}
 	
-	// Get current mode state
 	c.mu.Lock()
 	currentState, exists := c.objectModes[obj.FileID]
 	if !exists {
@@ -310,7 +292,6 @@ func (c *Controller) evaluateObjectWithConfirmation(ctx context.Context, obj *me
 	}
 	c.mu.Unlock()
 	
-	// Check for operator overrides
 	if overrideMode := c.getOperatorOverride(obj.FileID); overrideMode != "" {
 		if overrideMode != currentState.CurrentMode {
 			c.transitionModeWithReason(obj, currentState, overrideMode, "operator_override", objMetrics)
@@ -318,22 +299,18 @@ func (c *Controller) evaluateObjectWithConfirmation(ctx context.Context, obj *me
 		return
 	}
 	
-	// Check if in cooldown period
 	if time.Now().Before(currentState.CooldownUntil) {
 		return
 	}
 	
-	// Evaluate policy with multi-sample confirmation
 	recommendedMode := c.policy.DecideMode(*obj, objMetrics, currentState)
 	
-	// Handle mode transitions with enhanced hysteresis
 	if recommendedMode != currentState.CurrentMode {
 		currentState.ConsecutiveVotes++
 		
-		// Require multiple consecutive votes to change mode
 		requiredVotes := c.confirmationCount
 		if c.isHighRiskTransition(currentState.CurrentMode, recommendedMode) {
-			requiredVotes *= 2 // Double confirmation for risky transitions
+			requiredVotes *= 2
 		}
 		
 		if currentState.ConsecutiveVotes >= requiredVotes {
@@ -341,7 +318,7 @@ func (c *Controller) evaluateObjectWithConfirmation(ctx context.Context, obj *me
 			c.transitionModeWithReason(obj, currentState, recommendedMode, reason, objMetrics)
 		}
 	} else {
-		currentState.ConsecutiveVotes = 0 // Reset vote counter
+		currentState.ConsecutiveVotes = 0
 	}
 }
 
@@ -353,7 +330,6 @@ func (c *Controller) handleEmergencyCondition(obj *metadata.ObjectMeta, metrics 
 	c.emergencyMode = true
 	c.mu.Unlock()
 	
-	// Force immediate transition to Available mode for affected objects
 	currentState := c.objectModes[obj.FileID]
 	if currentState == nil {
 		currentState = &ObjectModeState{
@@ -368,36 +344,33 @@ func (c *Controller) handleEmergencyCondition(obj *metadata.ObjectMeta, metrics 
 		c.transitionModeWithReason(obj, currentState, "A", "emergency_partition", metrics)
 	}
 	
-	// Persist emergency state
 	c.persistState()
 }
 
 func (c *Controller) getDefaultMode(objectID string) string {
-	// Check if this is a critical key
-	if c.criticalKeys[objectID] {
-		return "C" // Critical keys always default to strong consistency
-	}
-	
-	// Check global override
-	if c.globalOverride != "" {
-		return c.globalOverride
-	}
-	
-	return "C" // Safe default
-}
 
-func (c *Controller) getOperatorOverride(objectID string) string {
-	// Critical keys override everything
 	if c.criticalKeys[objectID] {
 		return "C"
 	}
 	
-	// Global override
+	if c.globalOverride != "" {
+		return c.globalOverride
+	}
+	
+	return "C"
+}
+
+func (c *Controller) getOperatorOverride(objectID string) string {
+
+	if c.criticalKeys[objectID] {
+		return "C"
+	}
+	
 	return c.globalOverride
 }
 
 func (c *Controller) isHighRiskTransition(fromMode, toMode string) bool {
-	// C→A transitions are high risk (losing consistency guarantees)
+
 	return fromMode == "C" && toMode == "A"
 }
 
@@ -426,35 +399,27 @@ func (c *Controller) transitionModeWithReason(obj *metadata.ObjectMeta, state *O
 	log.Printf("Transitioning object %s from %s to %s (reason: %s, partition_risk: %.2f, lag: %v)", 
 		obj.FileID, oldMode, newMode, reason, metrics.PartitionRisk, metrics.ReplicationLag)
 
-	// Update state
 	state.CurrentMode = newMode
 	state.LastChange = time.Now()
 	state.Reason = reason
 	state.ConsecutiveVotes = 0
 	
-	// Set cooldown period based on transition type
 	cooldownPeriod := c.config.CooldownPeriod
 	if c.isHighRiskTransition(oldMode, newMode) {
-		cooldownPeriod *= 2 // Longer cooldown for risky transitions
+		cooldownPeriod *= 2
 	}
 	state.CooldownUntil = time.Now().Add(cooldownPeriod)
 
-	// Update object metadata
 	obj.CurrentMode = newMode
 	obj.LastModeChange = time.Now()
 	c.store.UpdateObject(obj)
 	
-	// Store reason for audit trail
 	c.modeChangeReasons[fmt.Sprintf("%s_%d", obj.FileID, time.Now().Unix())] = reason
 
-	// Emit metrics
 	c.emitModeChangeMetric(obj.FileID, oldMode, newMode, reason)
 	
-	// Persist state change
 	c.persistState()
 }
-
-// Operator override methods
 
 func (c *Controller) SetGlobalOverride(mode string) error {
 	validModes := map[string]bool{"C": true, "A": true, "": true}
@@ -468,7 +433,6 @@ func (c *Controller) SetGlobalOverride(mode string) error {
 	
 	log.Printf("Global override set to: %s", mode)
 	
-	// Persist the change
 	return c.persistState()
 }
 
@@ -479,7 +443,6 @@ func (c *Controller) AddCriticalKey(objectID string) error {
 	
 	log.Printf("Added critical key: %s", objectID)
 	
-	// Force the object to strong consistency
 	if obj := c.store.GetObject(objectID); obj != nil {
 		if state, exists := c.objectModes[objectID]; exists && state.CurrentMode != "C" {
 			metrics := ObjectMetrics{TransitionReason: "critical_key_designation"}
@@ -500,7 +463,7 @@ func (c *Controller) RemoveCriticalKey(objectID string) error {
 }
 
 func (c *Controller) persistState() error {
-	// No-op since we removed persistence for simplicity
+
 	return nil
 }
 
@@ -515,8 +478,6 @@ func (c *Controller) GetCriticalKeys() []string {
 	return keys
 }
 
-// Enhanced HTTP handlers with operator controls
-
 func (c *Controller) HandleSetGlobalOverride(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -524,7 +485,7 @@ func (c *Controller) HandleSetGlobalOverride(w http.ResponseWriter, r *http.Requ
 	}
 
 	var req struct {
-		Mode string `json:"mode"` // "C", "A", or "" to clear
+		Mode string `json:"mode"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -557,7 +518,7 @@ func (c *Controller) HandleCriticalKeys(w http.ResponseWriter, r *http.Request) 
 	case http.MethodPost:
 		var req struct {
 			ObjectID string `json:"object_id"`
-			Action   string `json:"action"` // "add" or "remove"
+			Action   string `json:"action"`
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

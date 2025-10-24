@@ -13,7 +13,6 @@ import (
 	"echofs/pkg/aws"
 )
 
-
 type Worker struct {
 	WorkerID string
 	WorkerStatus string
@@ -27,7 +26,6 @@ type WorkerMetrics struct {
 	AvailableSpace int64
 	CurrentLoad int64
 }
-
 
 func setConfig() Worker{
 	workerID := os.Getenv("WORKER_ID")
@@ -54,7 +52,6 @@ func setConfig() Worker{
 	}
 }
 
-
 func SetStoragePath(workerID string) string {
 	storagePath := filepath.Join("./storage", workerID,"chunks")
 	err := os.MkdirAll(storagePath,0755)
@@ -73,7 +70,6 @@ func main() {
 	fmt.Printf("Starting %s on port %d\n", worker.WorkerID, worker.Port)
     fmt.Printf("Storage path: %s\n", worker.StoragePath)
 
-
 	router := setupRoutes()
 	go func() {
 		fmt.Printf("Worker HTTP server listening on port %d\n", worker.Port)
@@ -83,7 +79,6 @@ func main() {
 	grpcPort := worker.Port + 1000
 	fmt.Printf("Worker gRPC server listening on port %d\n", grpcPort)
 	
-
 	ctx := context.Background()
 	awsConfig, err := aws.NewAWSConfig(ctx, "us-east-1", "", "")
 	var s3Storage *storage.S3Storage
@@ -100,7 +95,6 @@ func main() {
 		}
 	}
 
-
 	logger := log.New(os.Stdout, fmt.Sprintf("[gRPC-%s] ", worker.WorkerID), log.LstdFlags)
 	grpcServer := grpc.NewWorkerGRPCServer(worker.WorkerID, s3Storage, logger)
 	
@@ -111,6 +105,5 @@ func main() {
 		}
 	}()
 	
-
 	select {}
 }

@@ -13,14 +13,12 @@ import (
 	"google.golang.org/grpc"
 )
 
-
 type WorkerGRPCServer struct {
 	pb.UnimplementedWorkerServiceServer
 	workerID    string
 	s3Storage   *storage.S3Storage
 	logger      *log.Logger
 }
-
 
 func NewWorkerGRPCServer(workerID string, s3Storage *storage.S3Storage, logger *log.Logger) *WorkerGRPCServer {
 	return &WorkerGRPCServer{
@@ -30,13 +28,11 @@ func NewWorkerGRPCServer(workerID string, s3Storage *storage.S3Storage, logger *
 	}
 }
 
-
 func (w *WorkerGRPCServer) StoreChunk(ctx context.Context, req *pb.StoreChunkRequest) (*pb.StoreChunkResponse, error) {
 	start := time.Now()
 	w.logger.Printf("gRPC StoreChunk called: fileID=%s, chunkID=%s, index=%d", 
 		req.GetFileId(), req.GetChunkId(), req.GetChunkIndex())
 	
-	// Record chunk processing metrics
 	if metrics.AppMetrics != nil {
 		defer func() {
 			duration := time.Since(start)
@@ -64,14 +60,12 @@ func (w *WorkerGRPCServer) StoreChunk(ctx context.Context, req *pb.StoreChunkReq
 		}, nil
 	}
 
-
 	return &pb.StoreChunkResponse{
 		Success:  true,
 		Message:  "Chunk stored successfully (simulated)",
 		WorkerId: w.workerID,
 	}, nil
 }
-
 
 func (w *WorkerGRPCServer) RetrieveChunk(ctx context.Context, req *pb.RetrieveChunkRequest) (*pb.RetrieveChunkResponse, error) {
 	w.logger.Printf("gRPC RetrieveChunk called: fileID=%s, chunkID=%s, index=%d", 
@@ -93,14 +87,12 @@ func (w *WorkerGRPCServer) RetrieveChunk(ctx context.Context, req *pb.RetrieveCh
 		}, nil
 	}
 
-
 	return &pb.RetrieveChunkResponse{
 		Success:   true,
 		ChunkData: []byte("simulated chunk data"),
 		Message:   "Chunk retrieved successfully (simulated)",
 	}, nil
 }
-
 
 func (w *WorkerGRPCServer) DeleteChunk(ctx context.Context, req *pb.DeleteChunkRequest) (*pb.DeleteChunkResponse, error) {
 	w.logger.Printf("gRPC DeleteChunk called: fileID=%s, chunkID=%s, index=%d", 
@@ -124,7 +116,6 @@ func (w *WorkerGRPCServer) DeleteChunk(ctx context.Context, req *pb.DeleteChunkR
 	}, nil
 }
 
-
 func (w *WorkerGRPCServer) HealthCheck(ctx context.Context, req *pb.HealthCheckRequest) (*pb.HealthCheckResponse, error) {
 	return &pb.HealthCheckResponse{
 		Healthy:   true,
@@ -132,7 +123,6 @@ func (w *WorkerGRPCServer) HealthCheck(ctx context.Context, req *pb.HealthCheckR
 		Timestamp: time.Now().Unix(),
 	}, nil
 }
-
 
 func (w *WorkerGRPCServer) GetStatus(ctx context.Context, req *pb.WorkerStatusRequest) (*pb.WorkerStatusResponse, error) {
 	return &pb.WorkerStatusResponse{
@@ -146,14 +136,12 @@ func (w *WorkerGRPCServer) GetStatus(ctx context.Context, req *pb.WorkerStatusRe
 	}, nil
 }
 
-
 func (w *WorkerGRPCServer) StartGRPCServer(port int) error {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return fmt.Errorf("failed to listen on port %d: %v", port, err)
 	}
 
-	// Create gRPC server with metrics interceptors
 	s := grpc.NewServer(
 		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor()),
 		grpc.StreamInterceptor(metrics.StreamServerInterceptor()),

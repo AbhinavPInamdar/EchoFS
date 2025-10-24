@@ -1,6 +1,5 @@
 package main
 
-
 import (
     "fmt"
     "net/http"
@@ -15,7 +14,6 @@ func getWorkerID() string {
     }
     return workerID
 }
-
 
 func StoreChunk(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -36,7 +34,6 @@ func RetrieveChunk(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf(`{"status": "chunk retrieved", "chunk_id": "%s", "worker": "%s"}`, chunkId, workerID)))
 }
-
 
 func DeleteChunk(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -62,7 +59,6 @@ func StatusCheck(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(fmt.Sprintf(`{"worker": "%s", "available_space": 1000000000, "current_load": 0, "chunks_stored": 0}`, workerID)))
 }
 
-
 func setupRoutes() *mux.Router {
 	router := mux.NewRouter()
     
@@ -75,4 +71,3 @@ func setupRoutes() *mux.Router {
     return router
 
 }
-

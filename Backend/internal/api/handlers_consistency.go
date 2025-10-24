@@ -11,20 +11,17 @@ import (
 	"echofs/internal/replication"
 )
 
-// ConsistencyHandler handles consistency-related API endpoints
 type ConsistencyHandler struct {
 	controllerClient *controller.Client
 	replicationMgr   *replication.ReplicationManager
 }
 
-// UploadRequest represents an upload request with consistency parameters
 type UploadRequest struct {
 	UserID      string `json:"user_id"`
-	Consistency string `json:"consistency"` // "auto", "strong", "available"
-	Hint        string `json:"hint"`        // Optional hint for controller
+	Consistency string `json:"consistency"`
+	Hint        string `json:"hint"`
 }
 
-// UploadResponse represents the response from an upload operation
 type UploadResponse struct {
 	Success     bool                  `json:"success"`
 	Message     string                `json:"message"`
@@ -42,7 +39,7 @@ type UploadResponseData struct {
 }
 
 type ConsistencyInfo struct {
-	ModeUsed    string    `json:"mode_used"`    // "C", "A", "Hybrid"
+	ModeUsed    string    `json:"mode_used"`
 	Version     int64     `json:"version"`
 	Replicas    int       `json:"replicas"`
 	Latency     string    `json:"latency"`
@@ -56,21 +53,18 @@ func NewConsistencyHandler(controllerClient *controller.Client, replicationMgr *
 	}
 }
 
-// HandleUploadWithConsistency handles file uploads with consistency parameters
 func (ch *ConsistencyHandler) HandleUploadWithConsistency(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Parse multipart form
-	err := r.ParseMultipartForm(32 << 20) // 32MB max
+	err := r.ParseMultipartForm(32 << 20)
 	if err != nil {
 		http.Error(w, "Failed to parse form", http.StatusBadRequest)
 		return
 	}
 
-	// Get file from form
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		http.Error(w, "No file provided", http.StatusBadRequest)
@@ -78,7 +72,6 @@ func (ch *ConsistencyHandler) HandleUploadWithConsistency(w http.ResponseWriter,
 	}
 	defer file.Close()
 
-	// Get consistency parameters
 	userID := r.FormValue("user_id")
 	consistency := r.FormValue("consistency")
 	hint := r.FormValue("hint")
@@ -88,12 +81,10 @@ func (ch *ConsistencyHandler) HandleUploadWithConsistency(w http.ResponseWriter,
 		return
 	}
 
-	// Default consistency mode
 	if consistency == "" {
 		consistency = "auto"
 	}
 
-	// Validate consistency parameter
 	validModes := map[string]bool{
 		"auto":      true,
 		"strong":    true,
@@ -104,7 +95,6 @@ func (ch *ConsistencyHandler) HandleUploadWithConsistency(w http.ResponseWriter,
 		return
 	}
 
-	// Read file data
 	fileData := make([]byte, header.Size)
 	_, err = file.Read(fileData)
 	if err != nil {
@@ -112,16 +102,13 @@ func (ch *ConsistencyHandler) HandleUploadWithConsistency(w http.ResponseWriter,
 		return
 	}
 
-	// Create object metadata
 	fileID := generateFileID()
 	objMeta := metadata.NewObjectMeta(fileID, header.Filename, userID, header.Size)
 	
-	// Set hint if provided
 	if hint != "" {
 		objMeta.ModeHint = hint
 	}
 
-	// Determine consistency mode
 	var actualMode string
 	switch consistency {
 	case "strong":
@@ -131,10 +118,10 @@ func (ch *ConsistencyHandler) HandleUploadWithConsistency(w http.ResponseWriter,
 		actualMode = "A"
 		objMeta.CurrentMode = "A"
 	case "auto":
-		// Query controller for recommended mode
+
 		mode, err := ch.controllerClient.GetMode(r.Context(), fileID)
 		if err != nil {
-			// Fallback to strong consistency if controller unavailable
+
 			actualMode = "C"
 			objMeta.CurrentMode = "C"
 		} else {
@@ -143,10 +130,8 @@ func (ch *ConsistencyHandler) HandleUploadWithConsistency(w http.ResponseWriter,
 		}
 	}
 
-	// Select appropriate replicator
 	replicator := ch.replicationMgr.SelectReplicator(objMeta)
 
-	// Perform write operation
 	startTime := time.Now()
 	writeResult, err := replicator.Write(r.Context(), objMeta, fileData)
 	if err != nil {
@@ -154,18 +139,16 @@ func (ch *ConsistencyHandler) HandleUploadWithConsistency(w http.ResponseWriter,
 		return
 	}
 
-	// Update object metadata with write result
 	objMeta.LastVersion = writeResult.Version
-	objMeta.UpdateVectorClock("master") // Update vector clock for master node
+	objMeta.UpdateVectorClock("master")
 	objMeta.LastSyncTs = writeResult.Timestamp
 
-	// Prepare response
 	response := UploadResponse{
 		Success: true,
 		Message: "File uploaded successfully with " + replicator.GetStrategy() + " replication",
 		Data: &UploadResponseData{
 			FileID:     fileID,
-			Chunks:     1, // Simplified - single chunk
+			Chunks:     1,
 			Compressed: false,
 			FileSize:   header.Size,
 			Metadata:   objMeta,
@@ -185,7 +168,6 @@ func (ch *ConsistencyHandler) HandleUploadWithConsistency(w http.ResponseWriter,
 	json.NewEncoder(w).Encode(response)
 }
 
-// HandleGetConsistencyMode returns the current consistency mode for an object
 func (ch *ConsistencyHandler) HandleGetConsistencyMode(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -198,7 +180,6 @@ func (ch *ConsistencyHandler) HandleGetConsistencyMode(w http.ResponseWriter, r 
 		return
 	}
 
-	// Query controller for current mode
 	mode, err := ch.controllerClient.GetMode(r.Context(), objectID)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to get mode: %v", err), http.StatusInternalServerError)
@@ -209,7 +190,6 @@ func (ch *ConsistencyHandler) HandleGetConsistencyMode(w http.ResponseWriter, r 
 	json.NewEncoder(w).Encode(mode)
 }
 
-// HandleSetConsistencyHint sets a consistency hint for an object
 func (ch *ConsistencyHandler) HandleSetConsistencyHint(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -231,7 +211,6 @@ func (ch *ConsistencyHandler) HandleSetConsistencyHint(w http.ResponseWriter, r 
 		return
 	}
 
-	// Set hint via controller
 	err := ch.controllerClient.SetHint(r.Context(), req.ObjectID, req.Hint)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to set hint: %v", err), http.StatusInternalServerError)
@@ -248,7 +227,6 @@ func (ch *ConsistencyHandler) HandleSetConsistencyHint(w http.ResponseWriter, r 
 	json.NewEncoder(w).Encode(response)
 }
 
-// HandleReplicationStats returns replication statistics
 func (ch *ConsistencyHandler) HandleReplicationStats(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -261,14 +239,12 @@ func (ch *ConsistencyHandler) HandleReplicationStats(w http.ResponseWriter, r *h
 	json.NewEncoder(w).Encode(stats)
 }
 
-// Utility functions
-
 func generateFileID() string {
-	// In a real implementation, use UUID or similar
+
 	return fmt.Sprintf("file_%d", time.Now().UnixNano())
 }
 
 func generateSessionID() string {
-	// In a real implementation, use UUID or similar
+
 	return fmt.Sprintf("session_%d", time.Now().UnixNano())
 }

@@ -14,7 +14,7 @@ export default function Hero() {
               <button className="border px-6 py-2 rounded-lg">Learn More</button>
             </div>
             <div className="mt-10 flex gap-6">
-              {/* Icons with labels */}
+              {}
               <FeatureIcon label="Easy Upload" />
               <FeatureIcon label="Secure Storage" />
               <FeatureIcon label="Simple Sharing" />
@@ -34,4 +34,3 @@ export default function Hero() {
       </div>
     )
   }
-  

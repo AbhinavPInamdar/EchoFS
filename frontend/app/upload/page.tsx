@@ -61,7 +61,6 @@ export default function UploadPage() {
         throw new Error('Download failed');
       }
 
-      // For now, just show the response since download isn't fully implemented
       const result = await response.json();
       alert(`Download response: ${JSON.stringify(result, null, 2)}`);
     } catch (err) {
@@ -77,7 +76,7 @@ export default function UploadPage() {
             EchoFS File Upload Demo
           </h1>
 
-          {/* File Selection */}
+          {}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Select File
@@ -101,7 +100,7 @@ export default function UploadPage() {
             </div>
           </div>
 
-          {/* Selected File Info */}
+          {}
           {selectedFile && (
             <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
               <div className="flex items-center">
@@ -118,7 +117,7 @@ export default function UploadPage() {
             </div>
           )}
 
-          {/* Upload Button */}
+          {}
           <button
             onClick={handleUpload}
             disabled={!selectedFile || uploading}
@@ -127,7 +126,7 @@ export default function UploadPage() {
             {uploading ? 'Uploading...' : 'Upload File'}
           </button>
 
-          {/* Error Display */}
+          {}
           {error && (
             <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
               <div className="flex items-center">
@@ -137,7 +136,7 @@ export default function UploadPage() {
             </div>
           )}
 
-          {/* Success Display */}
+          {}
           {uploadResult && (
             <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
               <div className="flex items-center mb-2">
@@ -165,13 +164,13 @@ export default function UploadPage() {
             </div>
           )}
 
-          {/* API Status */}
+          {}
           <div className="mt-8 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
             <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
               Backend Status
             </h3>
             <p className="text-xs text-gray-600 dark:text-gray-400">
-              Make sure your backend is running on http://localhost:8080
+              Make sure your backend is running on http:
             </p>
             <code className="text-xs text-gray-500 dark:text-gray-400">
               ./run_master.sh

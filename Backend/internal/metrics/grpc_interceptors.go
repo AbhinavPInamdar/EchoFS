@@ -8,7 +8,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// UnaryServerInterceptor returns a gRPC unary server interceptor for metrics collection
 func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,
@@ -18,15 +17,12 @@ func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 	) (interface{}, error) {
 		start := time.Now()
 		
-		// Call the handler
 		resp, err := handler(ctx, req)
 		
-		// Record metrics
 		if AppMetrics != nil {
 			duration := time.Since(start)
 			method := info.FullMethod
 			
-			// Determine status
 			grpcStatus := "success"
 			errorCode := "none"
 			
@@ -47,7 +43,6 @@ func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 	}
 }
 
-// UnaryClientInterceptor returns a gRPC unary client interceptor for metrics collection
 func UnaryClientInterceptor() grpc.UnaryClientInterceptor {
 	return func(
 		ctx context.Context,
@@ -59,14 +54,11 @@ func UnaryClientInterceptor() grpc.UnaryClientInterceptor {
 	) error {
 		start := time.Now()
 		
-		// Call the method
 		err := invoker(ctx, method, req, reply, cc, opts...)
 		
-		// Record metrics
 		if AppMetrics != nil {
 			duration := time.Since(start)
 			
-			// Determine status
 			grpcStatus := "success"
 			errorCode := "none"
 			
@@ -87,7 +79,6 @@ func UnaryClientInterceptor() grpc.UnaryClientInterceptor {
 	}
 }
 
-// StreamServerInterceptor returns a gRPC stream server interceptor for metrics collection
 func StreamServerInterceptor() grpc.StreamServerInterceptor {
 	return func(
 		srv interface{},
@@ -97,15 +88,12 @@ func StreamServerInterceptor() grpc.StreamServerInterceptor {
 	) error {
 		start := time.Now()
 		
-		// Call the handler
 		err := handler(srv, stream)
 		
-		// Record metrics
 		if AppMetrics != nil {
 			duration := time.Since(start)
 			method := info.FullMethod
 			
-			// Determine status
 			grpcStatus := "success"
 			errorCode := "none"
 			

@@ -8,19 +8,16 @@ import (
 	"echofs/internal/metadata"
 )
 
-// ConflictResolver handles different conflict resolution strategies
 type ConflictResolver struct {
 	strategy ResolutionStrategy
 }
 
-// ResolutionStrategy defines the interface for conflict resolution
 type ResolutionStrategy interface {
 	Resolve(obj1, obj2 *metadata.ObjectMeta) (*metadata.ObjectMeta, error)
 	GetStrategyName() string
 	GetDescription() string
 }
 
-// ConflictResult represents the result of conflict resolution
 type ConflictResult struct {
 	ResolvedObject *metadata.ObjectMeta `json:"resolved_object"`
 	Strategy       string               `json:"strategy"`
@@ -36,15 +33,13 @@ func NewConflictResolver(strategy ResolutionStrategy) *ConflictResolver {
 	}
 }
 
-// ResolveConflict resolves conflicts between two object versions
 func (cr *ConflictResolver) ResolveConflict(obj1, obj2 *metadata.ObjectMeta) (*ConflictResult, error) {
 	if obj1 == nil || obj2 == nil {
 		return nil, fmt.Errorf("cannot resolve conflict with nil objects")
 	}
 	
-	// Check if there's actually a conflict
 	if !obj1.HasConflictWith(obj2) {
-		// No conflict, return the newer version
+
 		if obj1.IsNewerThan(obj2) {
 			return &ConflictResult{
 				ResolvedObject: obj1,
@@ -65,10 +60,8 @@ func (cr *ConflictResolver) ResolveConflict(obj1, obj2 *metadata.ObjectMeta) (*C
 		}, nil
 	}
 	
-	// Determine conflict type
 	conflictType := cr.determineConflictType(obj1, obj2)
 	
-	// Attempt resolution using the configured strategy
 	resolved, err := cr.strategy.Resolve(obj1, obj2)
 	if err != nil {
 		return &ConflictResult{
@@ -92,7 +85,7 @@ func (cr *ConflictResolver) ResolveConflict(obj1, obj2 *metadata.ObjectMeta) (*C
 }
 
 func (cr *ConflictResolver) determineConflictType(obj1, obj2 *metadata.ObjectMeta) string {
-	// Check for different types of conflicts
+
 	if obj1.Size != obj2.Size {
 		return "size_conflict"
 	}
@@ -105,7 +98,6 @@ func (cr *ConflictResolver) determineConflictType(obj1, obj2 *metadata.ObjectMet
 		return "consistency_mode_conflict"
 	}
 	
-	// Check vector clock conflicts
 	if cr.hasVectorClockConflict(obj1, obj2) {
 		return "vector_clock_conflict"
 	}
@@ -118,7 +110,6 @@ func (cr *ConflictResolver) hasVectorClockConflict(obj1, obj2 *metadata.ObjectMe
 		return true
 	}
 	
-	// Check for concurrent updates (neither dominates the other)
 	obj1Dominates := true
 	obj2Dominates := true
 	
@@ -149,15 +140,13 @@ func (cr *ConflictResolver) hasVectorClockConflict(obj1, obj2 *metadata.ObjectMe
 		}
 	}
 	
-	// Conflict if neither dominates
 	return !obj1Dominates && !obj2Dominates
 }
 
-// Last-Writer-Wins Strategy
 type LastWriterWinsStrategy struct{}
 
 func (lws *LastWriterWinsStrategy) Resolve(obj1, obj2 *metadata.ObjectMeta) (*metadata.ObjectMeta, error) {
-	// Choose the object with the latest timestamp
+
 	if obj1.UpdatedAt.After(obj2.UpdatedAt) {
 		log.Printf("LWW: Choosing obj1 (updated: %v) over obj2 (updated: %v)", 
 			obj1.UpdatedAt, obj2.UpdatedAt)
@@ -177,56 +166,46 @@ func (lws *LastWriterWinsStrategy) GetDescription() string {
 	return "Resolves conflicts by choosing the object with the latest timestamp. Risk: May lose concurrent updates."
 }
 
-// Vector Clock Merge Strategy
 type VectorClockMergeStrategy struct{}
 
 func (vcms *VectorClockMergeStrategy) Resolve(obj1, obj2 *metadata.ObjectMeta) (*metadata.ObjectMeta, error) {
-	// Create a merged object with combined vector clocks
-	merged := *obj1 // Start with obj1 as base
+
+	merged := *obj1
 	
-	// Merge vector clocks
 	if merged.VectorClock == nil {
 		merged.VectorClock = make(map[string]int64)
 	}
 	
-	// Take the maximum clock value for each node
 	for node, clock := range obj2.VectorClock {
 		if existingClock, exists := merged.VectorClock[node]; !exists || clock > existingClock {
 			merged.VectorClock[node] = clock
 		}
 	}
 	
-	// Choose the larger size (assuming append-only semantics)
 	if obj2.Size > merged.Size {
 		merged.Size = obj2.Size
 	}
 	
-	// Merge chunks (take union, preferring newer versions)
 	mergedChunks := make(map[string]metadata.ChunkRef)
 	
-	// Add chunks from obj1
 	for _, chunk := range obj1.Chunks {
 		mergedChunks[chunk.ChunkID] = chunk
 	}
 	
-	// Add/update chunks from obj2
 	for _, chunk := range obj2.Chunks {
 		if existing, exists := mergedChunks[chunk.ChunkID]; !exists || chunk.Version > existing.Version {
 			mergedChunks[chunk.ChunkID] = chunk
 		}
 	}
 	
-	// Convert back to slice
 	merged.Chunks = make([]metadata.ChunkRef, 0, len(mergedChunks))
 	for _, chunk := range mergedChunks {
 		merged.Chunks = append(merged.Chunks, chunk)
 	}
 	
-	// Update metadata
 	merged.LastVersion = max(obj1.LastVersion, obj2.LastVersion) + 1
 	merged.UpdatedAt = time.Now()
 	
-	// Choose the more restrictive consistency mode
 	if obj1.CurrentMode == "C" || obj2.CurrentMode == "C" {
 		merged.CurrentMode = "C"
 	} else if obj1.CurrentMode == "Hybrid" || obj2.CurrentMode == "Hybrid" {
@@ -249,7 +228,6 @@ func (vcms *VectorClockMergeStrategy) GetDescription() string {
 	return "Merges conflicting objects using vector clocks and semantic merge rules. Preserves all updates when possible."
 }
 
-// Manual Resolution Strategy (for critical conflicts)
 type ManualResolutionStrategy struct {
 	pendingConflicts map[string]*PendingConflict
 }
@@ -259,7 +237,7 @@ type PendingConflict struct {
 	Object1   *metadata.ObjectMeta  `json:"object1"`
 	Object2   *metadata.ObjectMeta  `json:"object2"`
 	Timestamp time.Time             `json:"timestamp"`
-	Priority  string                `json:"priority"` // "low", "medium", "high", "critical"
+	Priority  string                `json:"priority"`
 }
 
 func NewManualResolutionStrategy() *ManualResolutionStrategy {
@@ -269,7 +247,7 @@ func NewManualResolutionStrategy() *ManualResolutionStrategy {
 }
 
 func (mrs *ManualResolutionStrategy) Resolve(obj1, obj2 *metadata.ObjectMeta) (*metadata.ObjectMeta, error) {
-	// Store conflict for manual resolution
+
 	conflictID := fmt.Sprintf("%s_%d", obj1.FileID, time.Now().UnixNano())
 	
 	priority := mrs.determinePriority(obj1, obj2)
@@ -286,13 +264,12 @@ func (mrs *ManualResolutionStrategy) Resolve(obj1, obj2 *metadata.ObjectMeta) (*
 	
 	log.Printf("Conflict queued for manual resolution: %s (priority: %s)", conflictID, priority)
 	
-	// Return error to indicate manual resolution required
 	return nil, fmt.Errorf("conflict requires manual resolution: %s", conflictID)
 }
 
 func (mrs *ManualResolutionStrategy) determinePriority(obj1, obj2 *metadata.ObjectMeta) string {
-	// Determine priority based on object characteristics
-	if obj1.Size > 100*1024*1024 || obj2.Size > 100*1024*1024 { // > 100MB
+
+	if obj1.Size > 100*1024*1024 || obj2.Size > 100*1024*1024 {
 		return "high"
 	}
 	
@@ -313,12 +290,10 @@ func (mrs *ManualResolutionStrategy) ResolveManually(conflictID string, chosenOb
 		return fmt.Errorf("conflict %s not found", conflictID)
 	}
 	
-	// Validate that the chosen object is one of the conflicting objects
 	if chosenObject.FileID != conflict.Object1.FileID {
 		return fmt.Errorf("chosen object does not match conflict")
 	}
 	
-	// Remove from pending conflicts
 	delete(mrs.pendingConflicts, conflictID)
 	
 	log.Printf("Manual conflict resolution completed: %s", conflictID)
@@ -333,14 +308,12 @@ func (mrs *ManualResolutionStrategy) GetDescription() string {
 	return "Queues conflicts for manual resolution by operators. Safest but requires human intervention."
 }
 
-// CRDT Strategy (for commutative data)
 type CRDTStrategy struct{}
 
 func (cs *CRDTStrategy) Resolve(obj1, obj2 *metadata.ObjectMeta) (*metadata.ObjectMeta, error) {
-	// For file metadata, we can treat certain fields as CRDTs
+
 	merged := *obj1
 	
-	// Merge vector clocks (G-Counter CRDT)
 	if merged.VectorClock == nil {
 		merged.VectorClock = make(map[string]int64)
 	}
@@ -351,13 +324,10 @@ func (cs *CRDTStrategy) Resolve(obj1, obj2 *metadata.ObjectMeta) (*metadata.Obje
 		}
 	}
 	
-	// For file size, take the maximum (assuming append-only)
 	merged.Size = max(obj1.Size, obj2.Size)
 	
-	// For chunks, merge by taking union with conflict resolution
 	chunkMap := make(map[int]metadata.ChunkRef)
 	
-	// Add chunks from both objects
 	for _, chunk := range obj1.Chunks {
 		chunkMap[chunk.Index] = chunk
 	}
@@ -368,13 +338,11 @@ func (cs *CRDTStrategy) Resolve(obj1, obj2 *metadata.ObjectMeta) (*metadata.Obje
 		}
 	}
 	
-	// Convert back to slice
 	merged.Chunks = make([]metadata.ChunkRef, 0, len(chunkMap))
 	for _, chunk := range chunkMap {
 		merged.Chunks = append(merged.Chunks, chunk)
 	}
 	
-	// Update version and timestamp
 	merged.LastVersion = max(obj1.LastVersion, obj2.LastVersion) + 1
 	merged.UpdatedAt = time.Now()
 	
@@ -390,8 +358,6 @@ func (cs *CRDTStrategy) GetDescription() string {
 	return "Uses CRDT (Conflict-free Replicated Data Type) semantics for automatic conflict resolution."
 }
 
-// Utility functions
-
 func max(a, b int64) int64 {
 	if a > b {
 		return a
@@ -399,7 +365,6 @@ func max(a, b int64) int64 {
 	return b
 }
 
-// ConflictResolutionManager manages different resolution strategies
 type ConflictResolutionManager struct {
 	strategies map[string]ResolutionStrategy
 	defaultStrategy string
@@ -411,7 +376,6 @@ func NewConflictResolutionManager() *ConflictResolutionManager {
 		defaultStrategy: "vector_clock_merge",
 	}
 	
-	// Register built-in strategies
 	manager.RegisterStrategy("last_writer_wins", &LastWriterWinsStrategy{})
 	manager.RegisterStrategy("vector_clock_merge", &VectorClockMergeStrategy{})
 	manager.RegisterStrategy("manual_resolution", NewManualResolutionStrategy())

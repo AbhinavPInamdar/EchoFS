@@ -75,7 +75,6 @@ export default function FilesPage() {
     };
 
     const getFileIcon = (type: string) => {
-        // Clean minimalistic design - no emojis, just use File icon
         return <File className="h-4 w-4" />;
     };
 
@@ -89,7 +88,6 @@ export default function FilesPage() {
                         </div>
                     </div>
                 </div>
-            </>
         );
     }
 

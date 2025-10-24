@@ -14,18 +14,14 @@ import {
   TrendingUp as TrendingUpIcon
 } from 'lucide-react';
 
-
 function App() {
   const [page, setPage] = useState('home');
 
   return (
     <>
       <style>
-        {/*
-          This CSS is included directly to make the app self-contained.
-          It includes the Inter font and a simple light/dark theme.
-          The colors have been adjusted for better contrast.
-        */}
+        {
+}
         {`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         
@@ -172,8 +168,6 @@ const HeroComponent = () => (
     </div>
   </section>
 );
-
-
 
 const FeaturesComponent = () => {
   const features = [
@@ -628,7 +622,7 @@ const MetricsPage = () => {
 
   useEffect(() => {
     fetchMetrics();
-    const interval = setInterval(fetchMetrics, 5000); // Update every 5 seconds
+    const interval = setInterval(fetchMetrics, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -708,7 +702,7 @@ const MetricsPage = () => {
 
         {metrics && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* File Operations */}
+            {}
             <div className="bg-white border-minimal p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-medium text-primary">File Operations</h3>
@@ -736,7 +730,7 @@ const MetricsPage = () => {
               </div>
             </div>
 
-            {/* Performance */}
+            {}
             <div className="bg-white border-minimal p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-medium text-primary">Performance</h3>
@@ -758,7 +752,7 @@ const MetricsPage = () => {
               </div>
             </div>
 
-            {/* System Status */}
+            {}
             <div className="bg-white border-minimal p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-medium text-gray-900 dark:text-white">System Status</h3>
@@ -780,7 +774,7 @@ const MetricsPage = () => {
               </div>
             </div>
 
-            {/* gRPC Metrics */}
+            {}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">gRPC Communication</h3>
@@ -811,7 +805,7 @@ const MetricsPage = () => {
               </div>
             </div>
 
-            {/* HTTP Metrics */}
+            {}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">HTTP API</h3>
@@ -842,7 +836,7 @@ const MetricsPage = () => {
               </div>
             </div>
 
-            {/* Quick Actions */}
+            {}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Quick Actions</h3>
@@ -876,7 +870,7 @@ const MetricsPage = () => {
           </div>
         )}
 
-        {/* Status Indicator */}
+        {}
         <div className="mt-8 text-center">
           <div className="inline-flex items-center space-x-2 px-4 py-2 bg-green-100 dark:bg-green-900/20 rounded-full">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -946,7 +940,7 @@ const AdaptiveConsistencyPage = () => {
       });
       
       if (response.ok) {
-        fetchConsistencyMode(); // Refresh the mode
+        fetchConsistencyMode();
       } else {
         const errorText = await response.text();
         setError(`Failed to set hint: ${errorText}`);
@@ -986,7 +980,7 @@ const AdaptiveConsistencyPage = () => {
           </p>
         </div>
 
-        {/* Controller Status */}
+        {}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <div className="bg-white border-minimal p-6">
             <div className="flex items-center justify-between mb-4">
@@ -1055,7 +1049,7 @@ const AdaptiveConsistencyPage = () => {
           </div>
         </div>
 
-        {/* Control Panel */}
+        {}
         <div className="bg-white border-minimal p-6 mb-12">
           <h3 className="font-medium text-primary mb-6">
             Control Panel
@@ -1102,7 +1096,7 @@ const AdaptiveConsistencyPage = () => {
           )}
         </div>
 
-        {/* Innovation Highlights */}
+        {}
         <div className="bg-gray-50 border border-gray-200 p-12">
           <h3 className="text-2xl font-light mb-8 text-center text-black">Adaptive Consistency System</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-4xl mx-auto">

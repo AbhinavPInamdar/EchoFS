@@ -10,7 +10,6 @@ import (
 	"echofs/internal/metadata"
 )
 
-// SyncStrategy implements synchronous replication with quorum writes
 type SyncStrategy struct {
 	config     ReplicationConfig
 	workerPool *WorkerPool
@@ -30,21 +29,17 @@ func (s *SyncStrategy) Write(ctx context.Context, obj *metadata.ObjectMeta, chun
 	startTime := time.Now()
 	atomic.AddInt64(&s.stats.TotalWrites, 1)
 
-	// Create write context with timeout
 	writeCtx, cancel := context.WithTimeout(ctx, s.config.WriteTimeout)
 	defer cancel()
 
-	// Select worker nodes for replication
 	workers, err := s.workerPool.SelectWorkers(s.config.ReplicationFactor)
 	if err != nil {
 		atomic.AddInt64(&s.stats.FailedWrites, 1)
 		return nil, fmt.Errorf("failed to select workers: %w", err)
 	}
 
-	// Perform quorum write
 	result, err := s.performQuorumWrite(writeCtx, obj, chunk, workers)
 	
-	// Update statistics
 	latency := time.Since(startTime)
 	s.updateLatencyStats(latency)
 	
@@ -59,21 +54,18 @@ func (s *SyncStrategy) Write(ctx context.Context, obj *metadata.ObjectMeta, chun
 }
 
 func (s *SyncStrategy) Read(ctx context.Context, obj *metadata.ObjectMeta, chunkID string) ([]byte, error) {
-	// For reads, we can read from any replica (read-your-writes consistency)
-	// In a full implementation, this might involve version checking
-	
-	workers, err := s.workerPool.SelectWorkers(1) // Just need one healthy worker
+
+	workers, err := s.workerPool.SelectWorkers(1)
 	if err != nil {
 		return nil, fmt.Errorf("no healthy workers available: %w", err)
 	}
 
-	// Try to read from the first available worker
 	for _, worker := range workers {
 		data, err := worker.ReadChunk(ctx, chunkID)
 		if err == nil {
 			return data, nil
 		}
-		// Log error and try next worker
+
 	}
 
 	return nil, fmt.Errorf("failed to read chunk from any replica")
@@ -86,13 +78,10 @@ func (s *SyncStrategy) performQuorumWrite(ctx context.Context, obj *metadata.Obj
 		latency time.Duration
 	}
 
-	// Channel to collect responses
 	responses := make(chan writeResponse, len(workers))
 	
-	// Generate new version for this write
 	newVersion := obj.LastVersion + 1
 	
-	// Start writes to all replicas concurrently
 	for _, worker := range workers {
 		go func(w *Worker) {
 			startTime := time.Now()
@@ -105,7 +94,6 @@ func (s *SyncStrategy) performQuorumWrite(ctx context.Context, obj *metadata.Obj
 		}(worker)
 	}
 
-	// Collect responses and wait for quorum
 	var successCount int
 	var totalLatency time.Duration
 	var firstError error
@@ -120,9 +108,8 @@ func (s *SyncStrategy) performQuorumWrite(ctx context.Context, obj *metadata.Obj
 				firstError = resp.err
 			}
 			
-			// Check if we have quorum
 			if successCount >= s.config.QuorumSize {
-				// We have quorum, can return success
+
 				avgLatency := totalLatency / time.Duration(i+1)
 				return &WriteResult{
 					Acked:     true,
@@ -133,10 +120,9 @@ func (s *SyncStrategy) performQuorumWrite(ctx context.Context, obj *metadata.Obj
 				}, nil
 			}
 			
-			// Check if quorum is impossible
 			remaining := len(workers) - i - 1
 			if successCount + remaining < s.config.QuorumSize {
-				// Quorum impossible, fail fast
+
 				break
 			}
 
@@ -146,7 +132,6 @@ func (s *SyncStrategy) performQuorumWrite(ctx context.Context, obj *metadata.Obj
 		}
 	}
 
-	// Quorum not achieved
 	atomic.AddInt64(&s.stats.QuorumFailures, 1)
 	if firstError != nil {
 		return nil, fmt.Errorf("quorum write failed (got %d/%d): %w", 
@@ -161,12 +146,11 @@ func (s *SyncStrategy) updateLatencyStats(latency time.Duration) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	
-	// Simple moving average (in a real implementation, use a more sophisticated approach)
 	totalWrites := atomic.LoadInt64(&s.stats.TotalWrites)
 	if totalWrites == 1 {
 		s.stats.AverageLatency = latency
 	} else {
-		// Exponential moving average with alpha = 0.1
+
 		alpha := 0.1
 		s.stats.AverageLatency = time.Duration(
 			float64(s.stats.AverageLatency)*(1-alpha) + float64(latency)*alpha,
@@ -197,7 +181,6 @@ func (s *SyncStrategy) UpdateConfig(config ReplicationConfig) {
 	s.config = config
 }
 
-// Reset clears all statistics (useful for testing)
 func (s *SyncStrategy) Reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()

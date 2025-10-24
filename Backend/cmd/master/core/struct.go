@@ -135,7 +135,3 @@ type HealthChecker interface {
 	StartHealthChecking(ctx context.Context) error
 	StopHealthChecking(ctx context.Context) error
 }
-
-
-
-

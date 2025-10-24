@@ -27,40 +27,33 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 	return size, err
 }
 
-// HTTPMetricsMiddleware collects HTTP request metrics
 func HTTPMetricsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		
-		// Wrap the response writer to capture status code and size
 		wrapped := &responseWriter{
 			ResponseWriter: w,
 			statusCode:     http.StatusOK,
 		}
 		
-		// Increment active connections
 		if AppMetrics != nil {
 			AppMetrics.ActiveConnections.Inc()
 			defer AppMetrics.ActiveConnections.Dec()
 		}
 		
-		// Process the request
 		next.ServeHTTP(wrapped, r)
 		
-		// Record metrics after request completion
 		if AppMetrics != nil {
 			duration := time.Since(start)
 			route := getRoutePattern(r)
 			method := r.Method
 			status := strconv.Itoa(wrapped.statusCode)
 			
-			// Record HTTP request metrics
 			HTTPRequestsTotal.WithLabelValues(method, route, status).Inc()
 			HTTPRequestDuration.WithLabelValues(method, route).Observe(duration.Seconds())
 			HTTPRequestSize.WithLabelValues(method, route).Observe(float64(r.ContentLength))
 			HTTPResponseSize.WithLabelValues(method, route).Observe(float64(wrapped.size))
 			
-			// Record errors if status code indicates error
 			if wrapped.statusCode >= 400 {
 				HTTPErrors.WithLabelValues(method, route, status).Inc()
 			}
@@ -68,7 +61,6 @@ func HTTPMetricsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// getRoutePattern extracts the route pattern from the request
 func getRoutePattern(r *http.Request) string {
 	route := mux.CurrentRoute(r)
 	if route == nil {
@@ -83,7 +75,6 @@ func getRoutePattern(r *http.Request) string {
 	return template
 }
 
-// Add HTTP-specific metrics to our main metrics struct
 var (
 	HTTPRequestsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "echofs_http_requests_total",

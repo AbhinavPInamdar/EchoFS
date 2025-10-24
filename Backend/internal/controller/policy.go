@@ -8,67 +8,60 @@ import (
 )
 
 type Policy struct {
-	// Weights for decision factors
+
 	WeightPartition float64
 	WeightLag       float64
 	WeightWrite     float64
 	WeightHint      float64
 	WeightPenalty   float64
 
-	// Thresholds for mode decisions
-	ThresholdAvailable float64 // Score above this -> Available mode
-	ThresholdStrong    float64 // Score below this -> Strong mode
-	// Between thresholds -> Hybrid mode
+	ThresholdAvailable float64
+	ThresholdStrong    float64
 
-	// Normalization constants
 	MaxLagMs    float64
 	MaxWriteRate float64
 }
 
 type ObjectMetrics struct {
-	PartitionRisk    float64                       // 0.0-1.0, risk of network partition
-	ReplicationLag   time.Duration                 // Current replication lag
-	WriteRate        float64                       // Writes per second
-	NodeRTT          map[string]time.Duration      // RTT to each worker node
-	TransitionReason string                        // Human-readable reason for transition
+	PartitionRisk    float64
+	ReplicationLag   time.Duration
+	WriteRate        float64
+	NodeRTT          map[string]time.Duration
+	TransitionReason string
 }
 
 func NewPolicy() *Policy {
 	return &Policy{
-		// Weights (sum should be ~1.0 for interpretability)
-		WeightPartition: 0.4,  // Network partition risk is most important
-		WeightLag:       0.3,  // Replication lag is critical
-		WeightWrite:     0.2,  // Write rate affects consistency requirements
-		WeightHint:      0.1,  // User/operator hints
-		WeightPenalty:   0.2,  // Penalty for recent mode changes
 
-		// Thresholds
-		ThresholdAvailable: 0.6,  // Above 0.6 -> Available mode
-		ThresholdStrong:    0.3,  // Below 0.3 -> Strong mode
+		WeightPartition: 0.4,
+		WeightLag:       0.3,
+		WeightWrite:     0.2,
+		WeightHint:      0.1,
+		WeightPenalty:   0.2,
 
-		// Normalization
-		MaxLagMs:     1000.0, // 1 second max lag for normalization
-		MaxWriteRate: 100.0,  // 100 writes/sec max for normalization
+		ThresholdAvailable: 0.6,
+		ThresholdStrong:    0.3,
+
+		MaxLagMs:     1000.0,
+		MaxWriteRate: 100.0,
 	}
 }
 
 func (p *Policy) DecideMode(meta metadata.ObjectMeta, metrics ObjectMetrics, currentState *ObjectModeState) string {
 	score := p.calculateScore(meta, metrics, currentState)
 	
-	// Apply hysteresis - make it harder to change modes
 	if currentState.CurrentMode == "A" {
-		// If currently Available, require lower score to go to Strong
+
 		if score < p.ThresholdStrong-0.1 {
 			return "C"
 		}
 	} else if currentState.CurrentMode == "C" {
-		// If currently Strong, require higher score to go to Available
+
 		if score > p.ThresholdAvailable+0.1 {
 			return "A"
 		}
 	}
 
-	// Standard thresholds
 	if score > p.ThresholdAvailable {
 		return "A"
 	}
@@ -81,61 +74,54 @@ func (p *Policy) DecideMode(meta metadata.ObjectMeta, metrics ObjectMetrics, cur
 func (p *Policy) calculateScore(meta metadata.ObjectMeta, metrics ObjectMetrics, currentState *ObjectModeState) float64 {
 	score := 0.0
 
-	// Factor 1: Network partition risk (higher = favor Available mode)
 	score += p.WeightPartition * metrics.PartitionRisk
 
-	// Factor 2: Replication lag (higher lag = favor Available mode)
 	normalizedLag := math.Min(float64(metrics.ReplicationLag.Milliseconds())/p.MaxLagMs, 1.0)
 	score += p.WeightLag * normalizedLag
 
-	// Factor 3: Write rate (higher rate = favor Available mode for performance)
 	normalizedWriteRate := math.Min(metrics.WriteRate/p.MaxWriteRate, 1.0)
 	score += p.WeightWrite * normalizedWriteRate
 
-	// Factor 4: User/operator hint
 	hintValue := p.getHintValue(meta.ModeHint)
 	score += p.WeightHint * hintValue
 
-	// Factor 5: Penalty for recent mode changes (stability)
 	recentChangePenalty := p.calculateRecentChangePenalty(currentState)
 	score -= p.WeightPenalty * recentChangePenalty
 
-	// Determine transition reason for logging
 	metrics.TransitionReason = p.determineTransitionReason(metrics, hintValue, recentChangePenalty)
 
-	return math.Max(0.0, math.Min(1.0, score)) // Clamp to [0,1]
+	return math.Max(0.0, math.Min(1.0, score))
 }
 
 func (p *Policy) getHintValue(hint string) float64 {
 	switch hint {
 	case "Available":
-		return 1.0 // Strongly favor Available mode
+		return 1.0
 	case "Strong":
-		return 0.0 // Strongly favor Strong mode
+		return 0.0
 	case "Auto":
 		fallthrough
 	default:
-		return 0.5 // Neutral
+		return 0.5
 	}
 }
 
 func (p *Policy) calculateRecentChangePenalty(currentState *ObjectModeState) float64 {
-	// Penalize recent mode changes to prevent flapping
+
 	timeSinceChange := time.Since(currentState.LastChange)
 	
-	// Full penalty for changes within 1 minute, decay over 5 minutes
 	if timeSinceChange < time.Minute {
 		return 1.0
 	} else if timeSinceChange < 5*time.Minute {
-		// Linear decay from 1.0 to 0.0 over 4 minutes
+
 		return 1.0 - float64(timeSinceChange-time.Minute)/float64(4*time.Minute)
 	}
 	
-	return 0.0 // No penalty after 5 minutes
+	return 0.0
 }
 
 func (p *Policy) determineTransitionReason(metrics ObjectMetrics, hintValue, penalty float64) string {
-	// Determine primary reason for mode transition
+
 	if hintValue == 1.0 {
 		return "user_hint_available"
 	}
@@ -155,7 +141,6 @@ func (p *Policy) determineTransitionReason(metrics ObjectMetrics, hintValue, pen
 		return "stability_penalty"
 	}
 	
-	// Calculate average RTT
 	totalRTT := time.Duration(0)
 	nodeCount := 0
 	for _, rtt := range metrics.NodeRTT {
@@ -175,7 +160,6 @@ func (p *Policy) determineTransitionReason(metrics ObjectMetrics, hintValue, pen
 	return "policy_evaluation"
 }
 
-// PolicyStats returns current policy configuration for debugging
 func (p *Policy) PolicyStats() map[string]interface{} {
 	return map[string]interface{}{
 		"weights": map[string]float64{

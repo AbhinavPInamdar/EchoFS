@@ -16,10 +16,7 @@ import (
 	"echofs/internal/replication"
 )
 
-// TestConsistencyModes tests the adaptive consistency system
 func TestConsistencyModes(t *testing.T) {
-	// This is an integration test that would require running services
-	// For demonstration purposes, we'll show the test structure
 
 	tests := []struct {
 		name        string
@@ -55,7 +52,7 @@ func TestConsistencyModes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test upload with consistency parameters
+
 			fileData := []byte("test file content for consistency testing")
 			
 			response, err := uploadFileWithConsistency(
@@ -71,12 +68,10 @@ func TestConsistencyModes(t *testing.T) {
 				t.Fatalf("Upload failed: %v", err)
 			}
 
-			// Verify consistency mode was applied correctly
 			if response.Consistency.ModeUsed != tt.expectMode {
 				t.Errorf("Expected mode %s, got %s", tt.expectMode, response.Consistency.ModeUsed)
 			}
 
-			// Verify metrics were recorded
 			if response.Consistency.Replicas == 0 {
 				t.Error("Expected at least 1 replica")
 			}
@@ -93,9 +88,8 @@ func TestConsistencyModes(t *testing.T) {
 	}
 }
 
-// TestControllerDecisionMaking tests the controller's decision-making logic
 func TestControllerDecisionMaking(t *testing.T) {
-	// Test controller policy decisions
+
 	policy := controller.NewPolicy()
 	
 	testCases := []struct {
@@ -137,7 +131,7 @@ func TestControllerDecisionMaking(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Create mock object metadata
+
 			objMeta := &metadata.ObjectMeta{
 				FileID:      "test-file",
 				ModeHint:    "Auto",
@@ -147,7 +141,7 @@ func TestControllerDecisionMaking(t *testing.T) {
 			currentState := &controller.ObjectModeState{
 				ObjectID:    "test-file",
 				CurrentMode: "C",
-				LastChange:  time.Now().Add(-5 * time.Minute), // Old enough to avoid penalty
+				LastChange:  time.Now().Add(-5 * time.Minute),
 			}
 
 			decision := policy.DecideMode(*objMeta, tc.metrics, currentState)
@@ -159,7 +153,6 @@ func TestControllerDecisionMaking(t *testing.T) {
 	}
 }
 
-// TestReplicationStrategies tests sync vs async replication
 func TestReplicationStrategies(t *testing.T) {
 	config := replication.ReplicationConfig{
 		QuorumSize:        2,
@@ -174,7 +167,6 @@ func TestReplicationStrategies(t *testing.T) {
 	t.Run("Sync strategy performance", func(t *testing.T) {
 		syncStrategy := replicationMgr.GetSyncStrategy()
 		
-		// Test write performance
 		ctx := context.Background()
 		objMeta := &metadata.ObjectMeta{
 			FileID:      "sync-test-file",
@@ -205,7 +197,6 @@ func TestReplicationStrategies(t *testing.T) {
 	t.Run("Async strategy performance", func(t *testing.T) {
 		asyncStrategy := replicationMgr.GetAsyncStrategy()
 		
-		// Test write performance
 		ctx := context.Background()
 		objMeta := &metadata.ObjectMeta{
 			FileID:      "async-test-file",
@@ -226,22 +217,18 @@ func TestReplicationStrategies(t *testing.T) {
 			t.Error("Expected write to be acknowledged immediately")
 		}
 
-		// Async should be much faster (only primary write)
 		if latency > 50*time.Millisecond {
 			t.Errorf("Async write took too long: %v", latency)
 		}
 
 		t.Logf("Async write: latency=%v, replicas=%d", latency, result.Replicas)
 		
-		// Check that background replication was queued
 		queueSize := asyncStrategy.GetQueueSize()
 		if queueSize == 0 {
 			t.Error("Expected background replication to be queued")
 		}
 	})
 }
-
-// Helper functions
 
 type UploadResponse struct {
 	Success     bool             `json:"success"`
@@ -260,14 +247,12 @@ func uploadFileWithConsistency(url, filename string, data []byte, userID, consis
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
 
-	// Add file
 	fileWriter, err := writer.CreateFormFile("file", filename)
 	if err != nil {
 		return nil, err
 	}
 	fileWriter.Write(data)
 
-	// Add form fields
 	writer.WriteField("user_id", userID)
 	writer.WriteField("consistency", consistency)
 	if hint != "" {
@@ -276,7 +261,6 @@ func uploadFileWithConsistency(url, filename string, data []byte, userID, consis
 
 	writer.Close()
 
-	// Make request
 	req, err := http.NewRequest("POST", url, &buf)
 	if err != nil {
 		return nil, err

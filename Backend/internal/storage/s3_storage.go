@@ -12,12 +12,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
-
 type S3Storage struct {
 	client     *s3.Client
 	bucketName string
 }
-
 
 func NewS3Storage(client *s3.Client, bucketName string) *S3Storage {
 	return &S3Storage{
@@ -25,7 +23,6 @@ func NewS3Storage(client *s3.Client, bucketName string) *S3Storage {
 		bucketName: bucketName,
 	}
 }
-
 
 func (s *S3Storage) StoreChunk(ctx context.Context, fileID, chunkID string, chunkIndex int, data []byte) error {
 	key := s.generateChunkKey(fileID, chunkID, chunkIndex)
@@ -48,7 +45,6 @@ func (s *S3Storage) StoreChunk(ctx context.Context, fileID, chunkID string, chun
 	return nil
 }
 
-
 func (s *S3Storage) RetrieveChunk(ctx context.Context, fileID, chunkID string, chunkIndex int) ([]byte, error) {
 	key := s.generateChunkKey(fileID, chunkID, chunkIndex)
 	
@@ -70,7 +66,6 @@ func (s *S3Storage) RetrieveChunk(ctx context.Context, fileID, chunkID string, c
 	return data, nil
 }
 
-
 func (s *S3Storage) DeleteChunk(ctx context.Context, fileID, chunkID string, chunkIndex int) error {
 	key := s.generateChunkKey(fileID, chunkID, chunkIndex)
 	
@@ -85,7 +80,6 @@ func (s *S3Storage) DeleteChunk(ctx context.Context, fileID, chunkID string, chu
 	
 	return nil
 }
-
 
 func (s *S3Storage) ListChunks(ctx context.Context, fileID string) ([]string, error) {
 	prefix := fmt.Sprintf("files/%s/chunks/", fileID)
@@ -109,7 +103,6 @@ func (s *S3Storage) ListChunks(ctx context.Context, fileID string) ([]string, er
 	return chunks, nil
 }
 
-
 func (s *S3Storage) DeleteAllChunks(ctx context.Context, fileID string) error {
 	chunks, err := s.ListChunks(ctx, fileID)
 	if err != nil {
@@ -120,7 +113,6 @@ func (s *S3Storage) DeleteAllChunks(ctx context.Context, fileID string) error {
 		return nil
 	}
 	
-
 	var objects []types.ObjectIdentifier
 	for _, chunk := range chunks {
 		objects = append(objects, types.ObjectIdentifier{
@@ -142,7 +134,6 @@ func (s *S3Storage) DeleteAllChunks(ctx context.Context, fileID string) error {
 	return nil
 }
 
-
 func (s *S3Storage) ChunkExists(ctx context.Context, fileID, chunkID string, chunkIndex int) (bool, error) {
 	key := s.generateChunkKey(fileID, chunkID, chunkIndex)
 	
@@ -162,11 +153,9 @@ func (s *S3Storage) ChunkExists(ctx context.Context, fileID, chunkID string, chu
 	return true, nil
 }
 
-
 func (s *S3Storage) generateChunkKey(fileID, chunkID string, chunkIndex int) string {
 	return fmt.Sprintf("files/%s/chunks/%s_%d", fileID, chunkID, chunkIndex)
 }
-
 
 func (s *S3Storage) EnsureBucket(ctx context.Context) error {
 
@@ -178,7 +167,6 @@ func (s *S3Storage) EnsureBucket(ctx context.Context) error {
 		return nil
 	}
 	
-
 	_, err = s.client.CreateBucket(ctx, &s3.CreateBucketInput{
 		Bucket: aws.String(s.bucketName),
 	})
@@ -189,6 +177,3 @@ func (s *S3Storage) EnsureBucket(ctx context.Context) error {
 	
 	return nil
 }
-
-
-

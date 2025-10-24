@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
-// DynamoDBService handles metadata operations with AWS DynamoDB
 type DynamoDBService struct {
 	client *dynamodb.Client
 	tables struct {
@@ -21,7 +20,6 @@ type DynamoDBService struct {
 	}
 }
 
-// FileMetadata represents file information in DynamoDB
 type FileMetadata struct {
 	FileID          string    `dynamodbav:"file_id"`
 	FileName        string    `dynamodbav:"file_name"`
@@ -35,7 +33,6 @@ type FileMetadata struct {
 	S3BucketName    string    `dynamodbav:"s3_bucket_name"`
 }
 
-// ChunkMetadata represents chunk information in DynamoDB
 type ChunkMetadata struct {
 	FileID     string    `dynamodbav:"file_id"`
 	ChunkIndex int       `dynamodbav:"chunk_index"`
@@ -47,7 +44,6 @@ type ChunkMetadata struct {
 	CreatedAt  time.Time `dynamodbav:"created_at"`
 }
 
-// UploadSession represents upload session information in DynamoDB
 type UploadSession struct {
 	SessionID        string    `dynamodbav:"session_id"`
 	UserID           string    `dynamodbav:"user_id"`
@@ -60,7 +56,6 @@ type UploadSession struct {
 	TotalChunks      int       `dynamodbav:"total_chunks"`
 }
 
-// NewDynamoDBService creates a new DynamoDB service instance
 func NewDynamoDBService(client *dynamodb.Client, filesTable, chunksTable, sessionsTable string) *DynamoDBService {
 	return &DynamoDBService{
 		client: client,
@@ -76,21 +71,18 @@ func NewDynamoDBService(client *dynamodb.Client, filesTable, chunksTable, sessio
 	}
 }
 
-// CreateTables creates all required DynamoDB tables
 func (d *DynamoDBService) CreateTables(ctx context.Context) error {
-	// Create Files table
+
 	err := d.createFilesTable(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create files table: %w", err)
 	}
 
-	// Create Chunks table
 	err = d.createChunksTable(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create chunks table: %w", err)
 	}
 
-	// Create Sessions table
 	err = d.createSessionsTable(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create sessions table: %w", err)
@@ -99,7 +91,6 @@ func (d *DynamoDBService) CreateTables(ctx context.Context) error {
 	return nil
 }
 
-// File operations
 func (d *DynamoDBService) CreateFile(ctx context.Context, file *FileMetadata) error {
 	item, err := attributevalue.MarshalMap(file)
 	if err != nil {
@@ -146,9 +137,8 @@ func (d *DynamoDBService) GetFile(ctx context.Context, fileID string) (*FileMeta
 func (d *DynamoDBService) ListFiles(ctx context.Context, userID string) ([]*FileMetadata, error) {
 	var files []*FileMetadata
 
-	// If userID is provided, filter by user
 	if userID != "" {
-		// Use GSI or scan with filter
+
 		result, err := d.client.Scan(ctx, &dynamodb.ScanInput{
 			TableName:        aws.String(d.tables.Files),
 			FilterExpression: aws.String("uploaded_by = :user_id"),
@@ -165,12 +155,12 @@ func (d *DynamoDBService) ListFiles(ctx context.Context, userID string) ([]*File
 			var file FileMetadata
 			err = attributevalue.UnmarshalMap(item, &file)
 			if err != nil {
-				continue // Skip invalid items
+				continue
 			}
 			files = append(files, &file)
 		}
 	} else {
-		// List all files
+
 		result, err := d.client.Scan(ctx, &dynamodb.ScanInput{
 			TableName: aws.String(d.tables.Files),
 		})
@@ -183,7 +173,7 @@ func (d *DynamoDBService) ListFiles(ctx context.Context, userID string) ([]*File
 			var file FileMetadata
 			err = attributevalue.UnmarshalMap(item, &file)
 			if err != nil {
-				continue // Skip invalid items
+				continue
 			}
 			files = append(files, &file)
 		}
@@ -192,7 +182,6 @@ func (d *DynamoDBService) ListFiles(ctx context.Context, userID string) ([]*File
 	return files, nil
 }
 
-// Chunk operations
 func (d *DynamoDBService) CreateChunk(ctx context.Context, chunk *ChunkMetadata) error {
 	item, err := attributevalue.MarshalMap(chunk)
 	if err != nil {
@@ -229,7 +218,7 @@ func (d *DynamoDBService) GetChunksForFile(ctx context.Context, fileID string) (
 		var chunk ChunkMetadata
 		err = attributevalue.UnmarshalMap(item, &chunk)
 		if err != nil {
-			continue // Skip invalid items
+			continue
 		}
 		chunks = append(chunks, &chunk)
 	}
@@ -237,7 +226,6 @@ func (d *DynamoDBService) GetChunksForFile(ctx context.Context, fileID string) (
 	return chunks, nil
 }
 
-// Session operations
 func (d *DynamoDBService) CreateSession(ctx context.Context, session *UploadSession) error {
 	item, err := attributevalue.MarshalMap(session)
 	if err != nil {
@@ -281,7 +269,6 @@ func (d *DynamoDBService) GetSession(ctx context.Context, sessionID string) (*Up
 	return &session, nil
 }
 
-// Helper functions to create tables
 func (d *DynamoDBService) createFilesTable(ctx context.Context) error {
 	_, err := d.client.CreateTable(ctx, &dynamodb.CreateTableInput{
 		TableName: aws.String(d.tables.Files),
@@ -301,9 +288,9 @@ func (d *DynamoDBService) createFilesTable(ctx context.Context) error {
 	})
 
 	if err != nil {
-		// Check if table already exists
+
 		if _, ok := err.(*types.ResourceInUseException); ok {
-			return nil // Table already exists
+			return nil
 		}
 		return err
 	}
@@ -338,9 +325,9 @@ func (d *DynamoDBService) createChunksTable(ctx context.Context) error {
 	})
 
 	if err != nil {
-		// Check if table already exists
+
 		if _, ok := err.(*types.ResourceInUseException); ok {
-			return nil // Table already exists
+			return nil
 		}
 		return err
 	}
@@ -367,9 +354,9 @@ func (d *DynamoDBService) createSessionsTable(ctx context.Context) error {
 	})
 
 	if err != nil {
-		// Check if table already exists
+
 		if _, ok := err.(*types.ResourceInUseException); ok {
-			return nil // Table already exists
+			return nil
 		}
 		return err
 	}

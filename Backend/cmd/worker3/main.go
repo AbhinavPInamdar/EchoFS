@@ -9,7 +9,6 @@ import (
 	"net/http"
 )
 
-
 type Worker struct {
 	WorkerID string
 	WorkerStatus string
@@ -23,7 +22,6 @@ type WorkerMetrics struct {
 	AvailableSpace int64
 	CurrentLoad int64
 }
-
 
 func setConfig() Worker{
 	workerID := os.Getenv("WORKER_ID")
@@ -49,7 +47,6 @@ func setConfig() Worker{
 		StoragePath: "",
 	}
 }
-
 
 func SetStoragePath(workerID string) string {
 	storagePath := filepath.Join("./storage", workerID,"chunks")

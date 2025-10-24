@@ -35,7 +35,6 @@ type Server struct {
 	workerRegistry *grpcClient.WorkerRegistry
 }
 
-
 type InitUploadRequest struct {
 	FileName string `json:"file_name"`
 	FileSize int64  `json:"file_size"`
@@ -66,18 +65,13 @@ type APIResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
-
-
-
-
 func NewServer(masterNode *core.MasterNode, logger *log.Logger) *Server {
-	// Initialize metrics
+
 	metrics.InitMetrics()
 	chunkStore, err := storage.NewFSChunkStore("")
 	if err != nil {
 		logger.Fatalf("Failed to create chunk store: %v", err)
 	}
-
 
 	ctx := context.Background()
 	awsConfig, err := aws.NewAWSConfig(ctx, "us-east-1", "", "")
@@ -133,10 +127,9 @@ func NewServer(masterNode *core.MasterNode, logger *log.Logger) *Server {
 }
 
 func (s *Server) setupRoutes() {
-	// Add metrics middleware to all routes
+
 	s.router.Use(metrics.HTTPMetricsMiddleware)
 	
-	// Metrics endpoints
 	s.router.Handle("/metrics", promhttp.Handler()).Methods("GET")
 	s.router.HandleFunc("/metrics/dashboard", metrics.DashboardHandler).Methods("GET")
 	
@@ -252,7 +245,6 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 	
 	s.logger.Printf("Created %d chunks for file %s", len(chunks), header.Filename)
 	
-
 	var chunkAssignments []core.ChunkAssignment
 	workers := s.workerRegistry.GetAllWorkers()
 	workerList := make([]string, 0, len(workers))
@@ -269,7 +261,6 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 
 		primaryWorker := workerList[i%len(workerList)]
 		
-
 		if workerClient, exists := s.workerRegistry.GetWorker(primaryWorker); exists {
 			chunkData, err := os.ReadFile(chunk.FileName)
 			if err != nil {
@@ -357,7 +348,6 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 		"metadata":    fileMetadata,
 	}
 	
-	// Record metrics for successful upload
 	if metrics.AppMetrics != nil {
 		duration := time.Since(start)
 		metrics.AppMetrics.RecordFileUpload(fileSize, duration)
@@ -389,7 +379,6 @@ func (s *Server) InitUpload(w http.ResponseWriter, r *http.Request) {
 		totalChunks++
 	}
 	
-
 	workers := s.workerRegistry.GetAllWorkers()
 	workerList := make([]string, 0, len(workers))
 	for workerID := range workers {
@@ -458,10 +447,8 @@ func (s *Server) DownloadFile(w http.ResponseWriter, r *http.Request) {
 	fileId := vars["fileId"]
 	s.logger.Printf("DownloadFile called for fileId: %s", fileId)
 	
-
 	storageDir := filepath.Join("./storage/uploads", fileId)
 	
-
 	files, err := os.ReadDir(storageDir)
 	if err != nil {
 		s.sendErrorResponse(w, "File not found", http.StatusNotFound)
@@ -481,7 +468,6 @@ func (s *Server) DownloadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-
 	file, err := os.Open(originalFile)
 	if err != nil {
 		s.sendErrorResponse(w, "Failed to open file", http.StatusInternalServerError)
@@ -489,22 +475,18 @@ func (s *Server) DownloadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 	
-
 	fileInfo, err := file.Stat()
 	if err != nil {
 		s.sendErrorResponse(w, "Failed to get file info", http.StatusInternalServerError)
 		return
 	}
 	
-
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filepath.Base(originalFile)))
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
 	
-
 	io.Copy(w, file)
 	
-	// Record successful download metrics
 	if metrics.AppMetrics != nil {
 		duration := time.Since(start)
 		metrics.AppMetrics.RecordFileDownload(duration)
@@ -516,13 +498,11 @@ func (s *Server) ListFiles(w http.ResponseWriter, r *http.Request) {
 	
 	uploadsDir := "./storage/uploads"
 	
-
 	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
 		s.sendErrorResponse(w, "Failed to access storage", http.StatusInternalServerError)
 		return
 	}
 	
-
 	dirs, err := os.ReadDir(uploadsDir)
 	if err != nil {
 		s.sendErrorResponse(w, "Failed to list files", http.StatusInternalServerError)
@@ -536,7 +516,6 @@ func (s *Server) ListFiles(w http.ResponseWriter, r *http.Request) {
 			fileId := dir.Name()
 			dirPath := filepath.Join(uploadsDir, fileId)
 			
-
 			dirFiles, err := os.ReadDir(dirPath)
 			if err != nil {
 				continue
@@ -637,4 +616,3 @@ func (s *Server) sendErrorResponse(w http.ResponseWriter, message string, status
 	w.WriteHeader(statusCode)
 	json.NewEncoder(w).Encode(response)
 }
-

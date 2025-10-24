@@ -24,10 +24,8 @@ func main() {
 
 	log.Println("Starting EchoFS Consistency Controller...")
 
-	// Initialize metrics client
 	metricsClient := metrics.NewPrometheusClient(*metricsAddr)
 
-	// Initialize controller
 	ctrl := controller.New(controller.Config{
 		MetricsClient:      metricsClient,
 		PollInterval:       *pollInterval,
@@ -37,13 +35,11 @@ func main() {
 		CooldownPeriod:     30 * time.Second,
 	})
 
-	// Start controller background processes
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	go ctrl.Start(ctx)
 
-	// Setup HTTP server
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/mode", ctrl.HandleGetMode)
 	mux.HandleFunc("/v1/hint", ctrl.HandleSetHint)
@@ -57,7 +53,6 @@ func main() {
 		Handler: mux,
 	}
 
-	// Start server
 	go func() {
 		log.Printf("Controller listening on port %s", *port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -65,7 +60,6 @@ func main() {
 		}
 	}()
 
-	// Wait for shutdown signal
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
@@ -78,7 +72,6 @@ func main() {
 		log.Printf("Server shutdown error: %v", err)
 	}
 
-	cancel() // Stop controller
+	cancel()
 	log.Println("Controller stopped")
 }
-

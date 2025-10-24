@@ -44,24 +44,19 @@ func DashboardHandler(w http.ResponseWriter, r *http.Request) {
 	
 	dashboard := MetricsDashboard{}
 	
-	// Get file operation metrics
 	dashboard.FileOperations.TotalUploads = getCounterValue(AppMetrics.FileUploadsTotal)
 	dashboard.FileOperations.TotalDownloads = getCounterValue(AppMetrics.FileDownloadsTotal)
 	dashboard.FileOperations.TotalDeletes = getCounterValue(AppMetrics.FileDeletesTotal)
 	
-	// Get performance metrics (averages from histograms)
 	dashboard.Performance.AvgUploadTime = getHistogramMean(AppMetrics.UploadDuration)
 	dashboard.Performance.AvgDownloadTime = getHistogramMean(AppMetrics.DownloadDuration)
 	
-	// Get system metrics
 	dashboard.System.ActiveConnections = int(getGaugeValue(AppMetrics.ActiveConnections))
 	dashboard.System.StorageUsage = getGaugeValue(AppMetrics.StorageUsageBytes)
 	
-	// Get gRPC metrics
 	dashboard.GRPC.TotalRequests = getCounterVecSum(AppMetrics.GRPCRequestsTotal)
 	dashboard.GRPC.TotalErrors = getCounterVecSum(AppMetrics.GRPCErrors)
 	
-	// Get HTTP metrics
 	dashboard.HTTP.TotalRequests = getCounterVecSum(HTTPRequestsTotal)
 	dashboard.HTTP.TotalErrors = getCounterVecSum(HTTPErrors)
 	

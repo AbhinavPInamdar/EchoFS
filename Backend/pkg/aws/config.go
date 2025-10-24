@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 )
 
-// AWSConfig holds AWS service clients and configuration
 type AWSConfig struct {
 	Config         aws.Config
 	RDSClient      *rds.Client
@@ -32,28 +31,24 @@ type AWSConfig struct {
 	}
 }
 
-// NewAWSConfig creates a new AWS configuration with all required clients
 func NewAWSConfig(ctx context.Context, region, databaseURL, redisEndpoint string) (*AWSConfig, error) {
-	// Load AWS configuration
+
 	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
 	if err != nil {
 		return nil, fmt.Errorf("failed to load AWS config: %w", err)
 	}
 
-	// Create service clients
 	s3Client := s3.NewFromConfig(cfg)
 	dynamodbClient := dynamodb.NewFromConfig(cfg)
 	rdsClient := rds.NewFromConfig(cfg)
 	elastiCacheClient := elasticache.NewFromConfig(cfg)
 	cloudWatchClient := cloudwatch.NewFromConfig(cfg)
 
-	// Get S3 bucket name from environment
 	s3BucketName := os.Getenv("S3_BUCKET_NAME")
 	if s3BucketName == "" {
 		s3BucketName = "echofs-chunks-bucket"
 	}
 
-	// Get DynamoDB table names from environment
 	filesTable := os.Getenv("DYNAMODB_FILES_TABLE")
 	if filesTable == "" {
 		filesTable = "echofs-files"
@@ -90,9 +85,8 @@ func NewAWSConfig(ctx context.Context, region, databaseURL, redisEndpoint string
 	}, nil
 }
 
-// ValidateAWSServices validates that AWS services are accessible
 func (a *AWSConfig) ValidateAWSServices(ctx context.Context) error {
-	// Test RDS connectivity by describing DB instances
+
 	_, err := a.RDSClient.DescribeDBInstances(ctx, &rds.DescribeDBInstancesInput{
 		MaxRecords: aws.Int32(1),
 	})
@@ -100,7 +94,6 @@ func (a *AWSConfig) ValidateAWSServices(ctx context.Context) error {
 		return fmt.Errorf("failed to connect to RDS: %w", err)
 	}
 
-	// Test ElastiCache connectivity
 	_, err = a.ElastiCache.DescribeCacheClusters(ctx, &elasticache.DescribeCacheClustersInput{
 		MaxRecords: aws.Int32(1),
 	})
@@ -108,7 +101,6 @@ func (a *AWSConfig) ValidateAWSServices(ctx context.Context) error {
 		return fmt.Errorf("failed to connect to ElastiCache: %w", err)
 	}
 
-	// Test CloudWatch connectivity
 	_, err = a.CloudWatch.ListMetrics(ctx, &cloudwatch.ListMetricsInput{})
 	if err != nil {
 		return fmt.Errorf("failed to connect to CloudWatch: %w", err)

@@ -12,7 +12,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-
 type WorkerClient struct {
 	conn     *grpc.ClientConn
 	client   pb.WorkerServiceClient
@@ -20,7 +19,6 @@ type WorkerClient struct {
 	address  string
 	logger   *log.Logger
 }
-
 
 func NewWorkerClient(workerID, address string, logger *log.Logger) (*WorkerClient, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -45,7 +43,6 @@ func NewWorkerClient(workerID, address string, logger *log.Logger) (*WorkerClien
 	}, nil
 }
 
-
 func (wc *WorkerClient) StoreChunk(ctx context.Context, fileID, chunkID string, chunkIndex int, data []byte, md5Hash string) (*pb.StoreChunkResponse, error) {
 	req := &pb.StoreChunkRequest{
 		FileId:     fileID,
@@ -65,7 +62,6 @@ func (wc *WorkerClient) StoreChunk(ctx context.Context, fileID, chunkID string, 
 	return resp, nil
 }
 
-
 func (wc *WorkerClient) RetrieveChunk(ctx context.Context, fileID, chunkID string, chunkIndex int) (*pb.RetrieveChunkResponse, error) {
 	req := &pb.RetrieveChunkRequest{
 		FileId:     fileID,
@@ -82,7 +78,6 @@ func (wc *WorkerClient) RetrieveChunk(ctx context.Context, fileID, chunkID strin
 
 	return resp, nil
 }
-
 
 func (wc *WorkerClient) DeleteChunk(ctx context.Context, fileID, chunkID string, chunkIndex int) (*pb.DeleteChunkResponse, error) {
 	req := &pb.DeleteChunkRequest{
@@ -101,7 +96,6 @@ func (wc *WorkerClient) DeleteChunk(ctx context.Context, fileID, chunkID string,
 	return resp, nil
 }
 
-
 func (wc *WorkerClient) HealthCheck(ctx context.Context) (*pb.HealthCheckResponse, error) {
 	req := &pb.HealthCheckRequest{
 		WorkerId: wc.workerID,
@@ -114,7 +108,6 @@ func (wc *WorkerClient) HealthCheck(ctx context.Context) (*pb.HealthCheckRespons
 
 	return resp, nil
 }
-
 
 func (wc *WorkerClient) GetStatus(ctx context.Context) (*pb.WorkerStatusResponse, error) {
 	req := &pb.WorkerStatusRequest{
@@ -129,17 +122,14 @@ func (wc *WorkerClient) GetStatus(ctx context.Context) (*pb.WorkerStatusResponse
 	return resp, nil
 }
 
-
 func (wc *WorkerClient) Close() error {
 	return wc.conn.Close()
 }
-
 
 type WorkerRegistry struct {
 	workers map[string]*WorkerClient
 	logger  *log.Logger
 }
-
 
 func NewWorkerRegistry(logger *log.Logger) *WorkerRegistry {
 	return &WorkerRegistry{
@@ -147,7 +137,6 @@ func NewWorkerRegistry(logger *log.Logger) *WorkerRegistry {
 		logger:  logger,
 	}
 }
-
 
 func (wr *WorkerRegistry) RegisterWorker(workerID, address string) error {
 	client, err := NewWorkerClient(workerID, address, wr.logger)
@@ -160,17 +149,14 @@ func (wr *WorkerRegistry) RegisterWorker(workerID, address string) error {
 	return nil
 }
 
-
 func (wr *WorkerRegistry) GetWorker(workerID string) (*WorkerClient, bool) {
 	client, exists := wr.workers[workerID]
 	return client, exists
 }
 
-
 func (wr *WorkerRegistry) GetAllWorkers() map[string]*WorkerClient {
 	return wr.workers
 }
-
 
 func (wr *WorkerRegistry) RemoveWorker(workerID string) {
 	if client, exists := wr.workers[workerID]; exists {

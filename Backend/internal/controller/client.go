@@ -9,13 +9,11 @@ import (
 	"time"
 )
 
-// Client provides a client interface to the consistency controller
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
 }
 
-// NewClient creates a new controller client
 func NewClient(controllerURL string) *Client {
 	return &Client{
 		baseURL: controllerURL,
@@ -25,7 +23,6 @@ func NewClient(controllerURL string) *Client {
 	}
 }
 
-// GetMode queries the controller for the current consistency mode of an object
 func (c *Client) GetMode(ctx context.Context, objectID string) (*ModeResponse, error) {
 	url := fmt.Sprintf("%s/v1/mode?object_id=%s", c.baseURL, objectID)
 	
@@ -52,7 +49,6 @@ func (c *Client) GetMode(ctx context.Context, objectID string) (*ModeResponse, e
 	return &modeResp, nil
 }
 
-// SetHint sets a consistency hint for an object
 func (c *Client) SetHint(ctx context.Context, objectID, hint string) error {
 	url := fmt.Sprintf("%s/v1/hint", c.baseURL)
 	
@@ -85,7 +81,6 @@ func (c *Client) SetHint(ctx context.Context, objectID, hint string) error {
 	return nil
 }
 
-// Health checks if the controller is healthy
 func (c *Client) Health(ctx context.Context) error {
 	url := fmt.Sprintf("%s/health", c.baseURL)
 	
@@ -107,7 +102,6 @@ func (c *Client) Health(ctx context.Context) error {
 	return nil
 }
 
-// SetTimeout sets the HTTP client timeout
 func (c *Client) SetTimeout(timeout time.Duration) {
 	c.httpClient.Timeout = timeout
 }
