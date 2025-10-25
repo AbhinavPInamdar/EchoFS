@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { Upload, File, CheckCircle, AlertCircle, Download } from 'lucide-react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? 'https://echofs.onrender.com' : 'http://localhost:8080');
 
 export default function UploadPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);

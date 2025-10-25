@@ -14,7 +14,7 @@ import {
   TrendingUp as TrendingUpIcon
 } from 'lucide-react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? 'https://echofs.onrender.com' : 'http://localhost:8080');
 
 function App() {
   const [page, setPage] = useState('home');
@@ -908,7 +908,7 @@ const AdaptiveConsistencyPage = () => {
 
   const fetchControllerStatus = async () => {
     try {
-      const response = await fetch('http://localhost:8082/health');
+      const response = await fetch(`${API_URL.replace(':8080', ':8082')}/health`);
       if (response.ok) {
         setControllerStatus({ status: 'healthy', timestamp: new Date() });
       } else {
@@ -921,7 +921,7 @@ const AdaptiveConsistencyPage = () => {
 
   const fetchConsistencyMode = async () => {
     try {
-      const response = await fetch(`http://localhost:8082/v1/mode?object_id=${testObjectId}`);
+      const response = await fetch(`${API_URL.replace(':8080', ':8082')}/v1/mode?object_id=${testObjectId}`);
       if (response.ok) {
         const data = await response.json();
         setConsistencyMode(data);
@@ -938,7 +938,7 @@ const AdaptiveConsistencyPage = () => {
 
   const setConsistencyHint = async (hint: string) => {
     try {
-      const response = await fetch('http://localhost:8082/v1/hint', {
+      const response = await fetch(`${API_URL.replace(':8080', ':8082')}/v1/hint`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ object_id: testObjectId, hint })
