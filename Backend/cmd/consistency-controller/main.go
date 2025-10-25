@@ -48,13 +48,30 @@ func main() {
 	go ctrl.Start(ctx)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/mode", ctrl.HandleGetMode)
-	mux.HandleFunc("/v1/hint", ctrl.HandleSetHint)
-	mux.HandleFunc("/v1/register", ctrl.HandleRegisterObject)
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	
+	// Add CORS middleware
+	corsHandler := func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			
+			if r.Method == "OPTIONS" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			
+			next(w, r)
+		}
+	}
+	
+	mux.HandleFunc("/v1/mode", corsHandler(ctrl.HandleGetMode))
+	mux.HandleFunc("/v1/hint", corsHandler(ctrl.HandleSetHint))
+	mux.HandleFunc("/v1/register", corsHandler(ctrl.HandleRegisterObject))
+	mux.HandleFunc("/health", corsHandler(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
-	})
+	}))
 
 	server := &http.Server{
 		Addr:    ":" + *port,
