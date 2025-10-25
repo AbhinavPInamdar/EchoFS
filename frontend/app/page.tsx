@@ -941,6 +941,19 @@ const AdaptiveConsistencyPage = () => {
   const setConsistencyHint = async (hint: string) => {
     try {
       const controllerURL = API_URL.includes('onrender.com') ? 'https://echofs-consistency-controller.onrender.com' : 'http://localhost:8082';
+      
+      // First try to register the object if it doesn't exist
+      await fetch(`${controllerURL}/v1/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          object_id: testObjectId, 
+          name: `test-object-${testObjectId}`,
+          size: 1024 
+        })
+      });
+
+      // Then set the hint
       const response = await fetch(`${controllerURL}/v1/hint`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -949,6 +962,7 @@ const AdaptiveConsistencyPage = () => {
 
       if (response.ok) {
         fetchConsistencyMode();
+        setError(null);
       } else {
         const errorText = await response.text();
         setError(`Failed to set hint: ${errorText}`);
@@ -1081,6 +1095,34 @@ const AdaptiveConsistencyPage = () => {
           </div>
 
           <div className="flex flex-wrap gap-3 mb-4">
+            <button
+              onClick={async () => {
+                try {
+                  const controllerURL = API_URL.includes('onrender.com') ? 'https://echofs-consistency-controller.onrender.com' : 'http://localhost:8082';
+                  const response = await fetch(`${controllerURL}/v1/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                      object_id: testObjectId, 
+                      name: `test-object-${testObjectId}`,
+                      size: 1024 
+                    })
+                  });
+                  if (response.ok) {
+                    setError(null);
+                    fetchConsistencyMode();
+                  } else {
+                    const errorText = await response.text();
+                    setError(`Registration failed: ${errorText}`);
+                  }
+                } catch (err) {
+                  setError('Failed to register object');
+                }
+              }}
+              className="px-4 py-2 bg-blue-600 text-white text-sm hover-lift transition-all"
+            >
+              Register Object
+            </button>
             <button
               onClick={() => setConsistencyHint('Auto')}
               className="px-4 py-2 bg-primary text-white text-sm hover-lift transition-all"
