@@ -57,7 +57,7 @@ func StatusCheck(w http.ResponseWriter, r *http.Request) {
 	workerID := getWorkerID()
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf(`{"worker": "%s", "available_space": 1000000000, "current_load": 0, "chunks_stored": 0}`, workerID)))
+	w.Write([]byte(fmt.Sprintf(`{"worker": "%s", "available_space": 1000000000, "current_load": 0, "chunks_stored": 0, "protocols": ["http", "grpc"], "grpc_enabled": true}`, workerID)))
 }
 
 func setupRoutes() *mux.Router {

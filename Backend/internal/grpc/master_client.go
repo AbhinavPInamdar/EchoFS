@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"log"
 	"time"
+	"strings"
+	"crypto/tls"
 
 	"echofs/internal/metrics"
 	pb "echofs/proto/v1"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -21,11 +24,23 @@ type WorkerClient struct {
 }
 
 func NewWorkerClient(workerID, address string, logger *log.Logger) (*WorkerClient, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Determine if we should use TLS based on the address
+	var creds credentials.TransportCredentials
+	if strings.Contains(address, "onrender.com") || strings.Contains(address, ":443") {
+		// Use TLS for production endpoints
+		creds = credentials.NewTLS(&tls.Config{
+			ServerName: strings.Split(address, ":")[0], // Extract hostname
+		})
+	} else {
+		// Use insecure for localhost/development
+		creds = insecure.NewCredentials()
+	}
+
 	conn, err := grpc.DialContext(ctx, address, 
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithTransportCredentials(creds),
 		grpc.WithUnaryInterceptor(metrics.UnaryClientInterceptor()),
 		grpc.WithBlock())
 	if err != nil {

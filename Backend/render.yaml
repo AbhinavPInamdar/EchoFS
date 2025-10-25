@@ -15,3 +15,9 @@ services:
         value: us-east-1
       - key: LOG_LEVEL
         value: info
+      - key: WORKER1_URL
+        value: echofs-worker1.onrender.com:443
+      - key: WORKER2_URL
+        value: echofs-worker2.onrender.com:443
+      - key: WORKER3_URL
+        value: echofs-worker3.onrender.com:443
