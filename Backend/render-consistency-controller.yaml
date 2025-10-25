@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: echofs-consistency-controller
+    env: go
+    region: oregon
+    plan: free
+    buildCommand: go mod tidy && go build -o controller ./cmd/consistency-controller/
+    startCommand: ./controller
+    envVars:
+      - key: PORT
+        value: 8082
+      - key: LOG_LEVEL
+        value: info

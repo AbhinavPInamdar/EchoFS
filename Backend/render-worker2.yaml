@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: echofs-worker2
+    env: go
+    region: oregon
+    plan: free
+    buildCommand: go mod tidy && go build -o worker2 ./cmd/worker2/
+    startCommand: ./worker2
+    envVars:
+      - key: PORT
+        value: 9082
+      - key: WORKER_ID
+        value: worker2
+      - key: MASTER_URL
+        value: https://echofs.onrender.com
+      - key: LOG_LEVEL
+        value: info

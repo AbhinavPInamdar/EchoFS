@@ -80,7 +80,7 @@ func main() {
 	fmt.Printf("Worker gRPC server listening on port %d\n", grpcPort)
 	
 	ctx := context.Background()
-	awsConfig, err := aws.NewAWSConfig(ctx, "us-east-1", "", "")
+	awsConfig, err := aws.NewAWSConfig(ctx, "us-east-1", "")
 	var s3Storage *storage.S3Storage
 	if err != nil {
 		fmt.Printf("Warning: Failed to initialize AWS config: %v. Using simulation mode.\n", err)
