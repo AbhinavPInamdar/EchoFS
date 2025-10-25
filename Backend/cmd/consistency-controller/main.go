@@ -14,10 +14,17 @@ import (
 	"echofs/internal/metrics"
 )
 
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
 func main() {
 	var (
-		port         = flag.String("port", "8082", "Controller HTTP port")
-		metricsAddr  = flag.String("metrics", "localhost:9090", "Prometheus metrics address")
+		port         = flag.String("port", getEnv("PORT", "8082"), "Controller HTTP port")
+		metricsAddr  = flag.String("metrics", getEnv("METRICS_ADDR", "localhost:9090"), "Prometheus metrics address")
 		pollInterval = flag.Duration("poll", 10*time.Second, "Metrics polling interval")
 	)
 	flag.Parse()
