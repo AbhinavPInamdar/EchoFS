@@ -996,16 +996,21 @@ const AdaptiveConsistencyPage = () => {
               <ActivityIcon className="text-accent" size={20} />
             </div>
             <div className="flex items-center space-x-2">
-              <div className={`w-2 h-2 rounded-full ${controllerStatus?.status === 'healthy' ? 'bg-primary' :
-                  controllerStatus?.status === 'unhealthy' ? 'bg-accent' : 'bg-secondary'
+              <div className={`w-2 h-2 rounded-full ${controllerStatus?.status === 'healthy' ? 'bg-green-500' :
+                  controllerStatus?.status === 'unhealthy' ? 'bg-yellow-500' : 'bg-red-500'
                 }`}></div>
               <span className="text-sm font-medium text-primary capitalize">
-                {controllerStatus?.status || 'Unknown'}
+                {controllerStatus?.status === 'offline' ? 'Deploying...' : controllerStatus?.status || 'Unknown'}
               </span>
             </div>
             {controllerStatus?.timestamp && (
               <p className="text-xs text-accent mt-2">
                 {controllerStatus.timestamp.toLocaleTimeString()}
+              </p>
+            )}
+            {controllerStatus?.status === 'offline' && (
+              <p className="text-xs text-accent mt-2">
+                Consistency controller is being deployed. File operations will use default consistency mode.
               </p>
             )}
           </div>
