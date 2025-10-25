@@ -10,7 +10,7 @@ import (
 func getWorkerID() string {
     workerID := os.Getenv("WORKER_ID")
     if workerID == "" {
-        return "worker1"
+        return "worker3"
     }
     return workerID
 }

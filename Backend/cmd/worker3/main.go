@@ -1,12 +1,18 @@
 package main
 
 import (
+    "context"
     "fmt"
     "os"
     "log"
     "strconv"
     "path/filepath"
+	"net"
 	"net/http"
+	grpcServer "echofs/internal/grpc"
+	"echofs/internal/storage"
+	"echofs/pkg/aws"
+	"github.com/soheilhy/cmux"
 )
 
 type Worker struct {
@@ -26,7 +32,7 @@ type WorkerMetrics struct {
 func setConfig() Worker{
 	workerID := os.Getenv("WORKER_ID")
 	if workerID == "" {
-		workerID = "worker1"
+		workerID = "worker3"
 	}
 
 	portStr :=	os.Getenv("PORT")
@@ -66,8 +72,65 @@ func main() {
 	fmt.Printf("Starting %s on port %d\n", worker.WorkerID, worker.Port)
     fmt.Printf("Storage path: %s\n", worker.StoragePath)
 
-	router := setupRoutes()
+	// Set up AWS and storage
+	ctx := context.Background()
+	awsConfig, err := aws.NewAWSConfig(ctx, "us-east-1", "")
+	var s3Storage *storage.S3Storage
+	if err != nil {
+		fmt.Printf("Warning: Failed to initialize AWS config: %v. Using simulation mode.\n", err)
+	} else {
+		s3Storage = storage.NewS3Storage(awsConfig.S3, awsConfig.S3BucketName)
 
-	fmt.Printf("Worker HTTP server listening on port %d\n", worker.Port)
-    log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", worker.Port), router))
+		if err := s3Storage.EnsureBucket(ctx); err != nil {
+			fmt.Printf("Warning: Failed to ensure S3 bucket: %v. Using simulation mode.\n", err)
+			s3Storage = nil
+		} else {
+			fmt.Printf("✅ S3 storage initialized with bucket: %s\n", awsConfig.S3BucketName)
+		}
+	}
+
+	// Create listener
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", worker.Port))
+	if err != nil {
+		log.Fatalf("Failed to listen: %v", err)
+	}
+
+	// Create connection multiplexer
+	m := cmux.New(lis)
+	
+	// Match gRPC connections
+	grpcL := m.MatchWithWriters(cmux.HTTP2MatchHeaderFieldSendSettings("content-type", "application/grpc"))
+	
+	// Match HTTP connections
+	httpL := m.Match(cmux.HTTP1Fast())
+
+	// Set up gRPC server
+	logger := log.New(os.Stdout, fmt.Sprintf("[gRPC-%s] ", worker.WorkerID), log.LstdFlags)
+	grpcSrv := grpcServer.NewWorkerGRPCServer(worker.WorkerID, s3Storage, logger)
+	
+	// Set up HTTP server
+	router := setupRoutes()
+	httpServer := &http.Server{Handler: router}
+
+	// Start servers
+	go func() {
+		fmt.Printf("Starting gRPC server on port %d\n", worker.Port)
+		if err := grpcSrv.ServeGRPC(grpcL); err != nil {
+			log.Fatalf("gRPC server failed: %v", err)
+		}
+	}()
+
+	go func() {
+		fmt.Printf("Starting HTTP server on port %d\n", worker.Port)
+		if err := httpServer.Serve(httpL); err != nil {
+			log.Fatalf("HTTP server failed: %v", err)
+		}
+	}()
+
+	fmt.Printf("Worker server (HTTP + gRPC) listening on port %d\n", worker.Port)
+	
+	// Start the multiplexer
+	if err := m.Serve(); err != nil {
+		log.Fatalf("Multiplexer failed: %v", err)
+	}
 }
