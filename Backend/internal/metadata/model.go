@@ -61,7 +61,7 @@ func NewObjectMeta(fileID, name, ownerID string, size int64) *ObjectMeta {
 		LastModeChange: now,
 		CreatedAt:      now,
 		UpdatedAt:      now,
-		UploadedBy:     uploadedBy,
+		UploadedBy:     ownerID, // Use ownerID for backward compatibility
 		Status:         "active",
 	}
 }
