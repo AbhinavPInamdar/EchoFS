@@ -23,7 +23,7 @@ function App() {
     <>
       <style>
         {
-}
+        }
         {`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         
@@ -141,7 +141,7 @@ const HeroComponent = () => (
           The world's first distributed file system with intelligent consistency that adapts to network conditions in real-time.
         </p>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-20">
         <div className="text-center">
           <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
@@ -150,7 +150,7 @@ const HeroComponent = () => (
           <h3 className="text-lg font-medium text-primary mb-2">Adaptive</h3>
           <p className="text-sm text-accent">Intelligent mode switching</p>
         </div>
-        
+
         <div className="text-center">
           <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center mx-auto mb-4">
             <ActivityIcon size={24} className="text-white" />
@@ -158,7 +158,7 @@ const HeroComponent = () => (
           <h3 className="text-lg font-medium text-primary mb-2">Real-time</h3>
           <p className="text-sm text-accent">Live monitoring & metrics</p>
         </div>
-        
+
         <div className="text-center">
           <div className="w-16 h-16 bg-accent rounded-full flex items-center justify-center mx-auto mb-4">
             <TrendingUpIcon size={24} className="text-white" />
@@ -261,7 +261,7 @@ const FilesPage = () => {
       if (!response.ok) {
         throw new Error('Download failed');
       }
-      
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -511,11 +511,11 @@ const FileManagementPage = () => {
     const payload = { contents: chatHistory };
     const apiKey = ""
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-    
+
     let response = null;
     let retries = 0;
     const maxRetries = 5;
-    const initialDelay = 1000; 
+    const initialDelay = 1000;
 
     while (retries < maxRetries) {
       try {
@@ -525,7 +525,7 @@ const FileManagementPage = () => {
           body: JSON.stringify(payload)
         });
 
-        if (response.status !== 429) { 
+        if (response.status !== 429) {
           break;
         }
 
@@ -538,16 +538,16 @@ const FileManagementPage = () => {
     }
 
     if (!response || !response.ok) {
-        setError(`API error: ${response ? response.status : 'No'} ${response ? response.statusText : 'response'}`);
-        setLoading(false);
-        return;
+      setError(`API error: ${response ? response.status : 'No'} ${response ? response.statusText : 'response'}`);
+      setLoading(false);
+      return;
     }
 
     try {
       const result = await response.json();
       if (result.candidates && result.candidates.length > 0 &&
-          result.candidates[0].content && result.candidates[0].content.parts &&
-          result.candidates[0].content.parts.length > 0) {
+        result.candidates[0].content && result.candidates[0].content.parts &&
+        result.candidates[0].content.parts.length > 0) {
         const text = result.candidates[0].content.parts[0].text;
         setSummary(text);
       } else {
@@ -578,7 +578,7 @@ const FileManagementPage = () => {
           value={fileContent}
           onChange={(e) => setFileContent(e.target.value)}
         />
-        
+
         <div className="mt-4 flex justify-center">
           <button
             onClick={fetchSummary}
@@ -696,7 +696,7 @@ const MetricsPage = () => {
         {error && (
           <div className="mb-6 p-4 bg-light-gray border-minimal">
             <p className="text-primary">{error}</p>
-            <button 
+            <button
               onClick={fetchMetrics}
               className="mt-2 text-sm text-accent hover:text-primary transition-colors"
             >
@@ -707,7 +707,7 @@ const MetricsPage = () => {
 
         {metrics && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {}
+            { }
             <div className="bg-white border-minimal p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-medium text-primary">File Operations</h3>
@@ -735,7 +735,7 @@ const MetricsPage = () => {
               </div>
             </div>
 
-            {}
+            { }
             <div className="bg-white border-minimal p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-medium text-primary">Performance</h3>
@@ -757,7 +757,7 @@ const MetricsPage = () => {
               </div>
             </div>
 
-            {}
+            { }
             <div className="bg-white border-minimal p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-medium text-gray-900 dark:text-white">System Status</h3>
@@ -779,7 +779,7 @@ const MetricsPage = () => {
               </div>
             </div>
 
-            {}
+            { }
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">gRPC Communication</h3>
@@ -801,7 +801,7 @@ const MetricsPage = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Success Rate:</span>
                   <span className="font-semibold text-green-600 dark:text-green-400">
-                    {metrics.grpc.total_requests > 0 
+                    {metrics.grpc.total_requests > 0
                       ? ((metrics.grpc.total_requests - metrics.grpc.total_errors) / metrics.grpc.total_requests * 100).toFixed(1) + '%'
                       : 'N/A'
                     }
@@ -810,7 +810,7 @@ const MetricsPage = () => {
               </div>
             </div>
 
-            {}
+            { }
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">HTTP API</h3>
@@ -832,7 +832,7 @@ const MetricsPage = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Success Rate:</span>
                   <span className="font-semibold text-green-600 dark:text-green-400">
-                    {metrics.http.total_requests > 0 
+                    {metrics.http.total_requests > 0
                       ? ((metrics.http.total_requests - metrics.http.total_errors) / metrics.http.total_requests * 100).toFixed(1) + '%'
                       : 'N/A'
                     }
@@ -841,7 +841,7 @@ const MetricsPage = () => {
               </div>
             </div>
 
-            {}
+            { }
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Quick Actions</h3>
@@ -875,7 +875,7 @@ const MetricsPage = () => {
           </div>
         )}
 
-        {}
+        { }
         <div className="mt-8 text-center">
           <div className="inline-flex items-center space-x-2 px-4 py-2 bg-green-100 dark:bg-green-900/20 rounded-full">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
@@ -946,7 +946,7 @@ const AdaptiveConsistencyPage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ object_id: testObjectId, hint })
       });
-      
+
       if (response.ok) {
         fetchConsistencyMode();
       } else {
@@ -988,7 +988,7 @@ const AdaptiveConsistencyPage = () => {
           </p>
         </div>
 
-        {}
+        { }
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <div className="bg-white border-minimal p-6">
             <div className="flex items-center justify-between mb-4">
@@ -996,10 +996,9 @@ const AdaptiveConsistencyPage = () => {
               <ActivityIcon className="text-accent" size={20} />
             </div>
             <div className="flex items-center space-x-2">
-              <div className={`w-2 h-2 rounded-full ${
-                controllerStatus?.status === 'healthy' ? 'bg-primary' :
-                controllerStatus?.status === 'unhealthy' ? 'bg-accent' : 'bg-secondary'
-              }`}></div>
+              <div className={`w-2 h-2 rounded-full ${controllerStatus?.status === 'healthy' ? 'bg-primary' :
+                  controllerStatus?.status === 'unhealthy' ? 'bg-accent' : 'bg-secondary'
+                }`}></div>
               <span className="text-sm font-medium text-primary capitalize">
                 {controllerStatus?.status || 'Unknown'}
               </span>
@@ -1024,9 +1023,9 @@ const AdaptiveConsistencyPage = () => {
             ) : consistencyMode ? (
               <div>
                 <div className="inline-block px-2 py-1 bg-light-gray text-xs font-medium text-primary mb-2">
-                  {consistencyMode.mode === 'C' ? 'Strong' : 
-                   consistencyMode.mode === 'A' ? 'Available' : 
-                   consistencyMode.mode}
+                  {consistencyMode.mode === 'C' ? 'Strong' :
+                    consistencyMode.mode === 'A' ? 'Available' :
+                      consistencyMode.mode}
                 </div>
                 <p className="text-xs text-accent mt-1">
                   {consistencyMode.reason}
@@ -1057,12 +1056,12 @@ const AdaptiveConsistencyPage = () => {
           </div>
         </div>
 
-        {}
+        { }
         <div className="bg-white border-minimal p-6 mb-12">
           <h3 className="font-medium text-primary mb-6">
             Control Panel
           </h3>
-          
+
           <div className="mb-6">
             <label className="block text-sm text-accent mb-2">
               Test Object ID
@@ -1104,7 +1103,7 @@ const AdaptiveConsistencyPage = () => {
           )}
         </div>
 
-        {}
+        { }
         <div className="bg-gray-50 border border-gray-200 p-12">
           <h3 className="text-2xl font-light mb-8 text-center text-black">Adaptive Consistency System</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 max-w-4xl mx-auto">

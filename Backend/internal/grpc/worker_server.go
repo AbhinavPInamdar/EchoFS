@@ -151,3 +151,14 @@ func (w *WorkerGRPCServer) StartGRPCServer(port int) error {
 	w.logger.Printf("Worker gRPC server listening on port %d", port)
 	return s.Serve(lis)
 }
+
+func (w *WorkerGRPCServer) ServeGRPC(lis net.Listener) error {
+	s := grpc.NewServer(
+		grpc.UnaryInterceptor(metrics.UnaryServerInterceptor()),
+		grpc.StreamInterceptor(metrics.StreamServerInterceptor()),
+	)
+	pb.RegisterWorkerServiceServer(s, w)
+
+	w.logger.Printf("Worker gRPC server serving on provided listener")
+	return s.Serve(lis)
+}

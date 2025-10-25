@@ -17,6 +17,7 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
 	github.com/rs/cors v1.11.1
+	github.com/soheilhy/cmux v0.1.5
 	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.10
 )

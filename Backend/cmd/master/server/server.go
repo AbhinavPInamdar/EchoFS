@@ -111,9 +111,9 @@ func NewServer(masterNode *core.MasterNode, logger *log.Logger) *Server {
 	workerRegistry := grpcClient.NewWorkerRegistry(logger)
 	
 	// Get worker URLs from environment variables or use localhost defaults
-	worker1URL := getEnv("WORKER1_URL", "localhost:9081")
-	worker2URL := getEnv("WORKER2_URL", "localhost:9082") 
-	worker3URL := getEnv("WORKER3_URL", "localhost:9083")
+	worker1URL := getEnv("WORKER1_URL", "localhost:10081")
+	worker2URL := getEnv("WORKER2_URL", "localhost:10082") 
+	worker3URL := getEnv("WORKER3_URL", "localhost:10083")
 	
 	if err := workerRegistry.RegisterWorker("worker1", worker1URL); err != nil {
 		logger.Printf("Warning: Failed to register worker1 at %s: %v", worker1URL, err)
