@@ -22,7 +22,7 @@ type AWSConfig struct {
 	DynamoDB       *dynamodb.Client
 	Region         string
 	DatabaseURL    string
-	RedisEndpoint  string
+
 	S3BucketName   string
 	DynamoDBTables struct {
 		Files    string
@@ -31,7 +31,7 @@ type AWSConfig struct {
 	}
 }
 
-func NewAWSConfig(ctx context.Context, region, databaseURL, redisEndpoint string) (*AWSConfig, error) {
+func NewAWSConfig(ctx context.Context, region, databaseURL string) (*AWSConfig, error) {
 
 	cfg, err := config.LoadDefaultConfig(ctx, config.WithRegion(region))
 	if err != nil {
@@ -71,7 +71,7 @@ func NewAWSConfig(ctx context.Context, region, databaseURL, redisEndpoint string
 		DynamoDB:      dynamodbClient,
 		Region:        region,
 		DatabaseURL:   databaseURL,
-		RedisEndpoint: redisEndpoint,
+
 		S3BucketName:  s3BucketName,
 		DynamoDBTables: struct {
 			Files    string

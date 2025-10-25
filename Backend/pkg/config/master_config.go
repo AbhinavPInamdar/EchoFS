@@ -16,10 +16,7 @@ type MasterConfig struct {
 	DatabaseMaxConns int    `json:"database_max_conns"`
 	DatabaseTimeout  time.Duration `json:"database_timeout"`
 	
-	RedisAddr     string        `json:"redis_addr"`
-	RedisPassword string        `json:"redis_password"`
-	RedisDB       int           `json:"redis_db"`
-	RedisTimeout  time.Duration `json:"redis_timeout"`
+
 	
 	ReplicationFactor     int           `json:"replication_factor"`
 	VirtualNodesPerWorker int           `json:"virtual_nodes_per_worker"`
@@ -52,8 +49,6 @@ func LoadMasterConfig() (*MasterConfig, error) {
 		LogLevel:             "info",
 		DatabaseMaxConns:     10,
 		DatabaseTimeout:      30 * time.Second,
-		RedisDB:              0,
-		RedisTimeout:         10 * time.Second,
 		ReplicationFactor:    3,
 		VirtualNodesPerWorker: 100,
 		WorkerHealthTimeout:  90 * time.Second,
@@ -87,19 +82,9 @@ func LoadMasterConfig() (*MasterConfig, error) {
 	
 	if dbURL := os.Getenv("DATABASE_URL"); dbURL != "" {
 		config.DatabaseURL = dbURL
-	} else {
-		return nil, fmt.Errorf("DATABASE_URL environment variable is required")
 	}
 	
-	if redisAddr := os.Getenv("REDIS_ADDR"); redisAddr != "" {
-		config.RedisAddr = redisAddr
-	} else {
-		return nil, fmt.Errorf("REDIS_ADDR environment variable is required")
-	}
 	
-	if redisPassword := os.Getenv("REDIS_PASSWORD"); redisPassword != "" {
-		config.RedisPassword = redisPassword
-	}
 	
 	if jwtSecret := os.Getenv("JWT_SECRET"); jwtSecret != "" {
 		config.JWTSecret = jwtSecret
@@ -145,13 +130,7 @@ func (c *MasterConfig) Validate() error {
 		return fmt.Errorf("chunk size must be positive")
 	}
 	
-	if c.DatabaseURL == "" {
-		return fmt.Errorf("database URL cannot be empty")
-	}
-	
-	if c.RedisAddr == "" {
-		return fmt.Errorf("redis address cannot be empty")
-	}
+
 	
 	if c.JWTSecret == "" {
 		return fmt.Errorf("JWT secret cannot be empty")
