@@ -909,13 +909,16 @@ const AdaptiveConsistencyPage = () => {
   const fetchControllerStatus = async () => {
     try {
       const controllerURL = API_URL.includes('onrender.com') ? 'https://echofs-consistency-controller.onrender.com' : 'http://localhost:8082';
+      console.log('Checking controller at:', controllerURL);
       const response = await fetch(`${controllerURL}/health`);
+      console.log('Controller response status:', response.status);
       if (response.ok) {
         setControllerStatus({ status: 'healthy', timestamp: new Date() });
       } else {
         setControllerStatus({ status: 'unhealthy', timestamp: new Date() });
       }
     } catch (err) {
+      console.error('Controller fetch error:', err);
       setControllerStatus({ status: 'offline', timestamp: new Date() });
     }
   };
@@ -923,15 +926,19 @@ const AdaptiveConsistencyPage = () => {
   const fetchConsistencyMode = async () => {
     try {
       const controllerURL = API_URL.includes('onrender.com') ? 'https://echofs-consistency-controller.onrender.com' : 'http://localhost:8082';
+      console.log('Fetching consistency mode from:', controllerURL);
       const response = await fetch(`${controllerURL}/v1/mode?object_id=${testObjectId}`);
+      console.log('Mode response status:', response.status);
       if (response.ok) {
         const data = await response.json();
+        console.log('Mode data:', data);
         setConsistencyMode(data);
         setError(null);
       } else {
         setError('Failed to fetch consistency mode');
       }
     } catch (err) {
+      console.error('Mode fetch error:', err);
       setError('Controller not available');
     } finally {
       setLoading(false);
@@ -941,15 +948,15 @@ const AdaptiveConsistencyPage = () => {
   const setConsistencyHint = async (hint: string) => {
     try {
       const controllerURL = API_URL.includes('onrender.com') ? 'https://echofs-consistency-controller.onrender.com' : 'http://localhost:8082';
-      
+
       // First try to register the object if it doesn't exist
       await fetch(`${controllerURL}/v1/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          object_id: testObjectId, 
+        body: JSON.stringify({
+          object_id: testObjectId,
           name: `test-object-${testObjectId}`,
-          size: 1024 
+          size: 1024
         })
       });
 
@@ -1102,10 +1109,10 @@ const AdaptiveConsistencyPage = () => {
                   const response = await fetch(`${controllerURL}/v1/register`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                      object_id: testObjectId, 
+                    body: JSON.stringify({
+                      object_id: testObjectId,
                       name: `test-object-${testObjectId}`,
-                      size: 1024 
+                      size: 1024
                     })
                   });
                   if (response.ok) {
