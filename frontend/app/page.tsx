@@ -997,7 +997,7 @@ const AdaptiveConsistencyPage = () => {
             </div>
             <div className="flex items-center space-x-2">
               <div className={`w-2 h-2 rounded-full ${controllerStatus?.status === 'healthy' ? 'bg-green-500' :
-                  controllerStatus?.status === 'unhealthy' ? 'bg-yellow-500' : 'bg-red-500'
+                controllerStatus?.status === 'unhealthy' ? 'bg-yellow-500' : 'bg-red-500'
                 }`}></div>
               <span className="text-sm font-medium text-primary capitalize">
                 {controllerStatus?.status === 'offline' ? 'Deploying...' : controllerStatus?.status || 'Unknown'}

@@ -265,6 +265,61 @@ func (c *Controller) HandleSetHint(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+type RegisterRequest struct {
+	ObjectID string `json:"object_id"`
+	Name     string `json:"name,omitempty"`
+	Size     int64  `json:"size,omitempty"`
+}
+
+func (c *Controller) HandleRegisterObject(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req RegisterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	if req.ObjectID == "" {
+		http.Error(w, "object_id is required", http.StatusBadRequest)
+		return
+	}
+
+	// Check if object already exists
+	if existing := c.store.GetObject(req.ObjectID); existing != nil {
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":    "already_exists",
+			"object_id": req.ObjectID,
+		})
+		return
+	}
+
+	// Create new object metadata
+	obj := &metadata.ObjectMeta{
+		FileID:         req.ObjectID,
+		Name:           req.Name,
+		Size:           req.Size,
+		CurrentMode:    "C", // Default to strong consistency
+		ModeHint:       "Auto",
+		LastModeChange: time.Now(),
+	}
+
+	c.store.RegisterObject(obj)
+
+	log.Printf("Registered object %s with consistency controller", req.ObjectID)
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":    "registered",
+		"object_id": req.ObjectID,
+		"mode":      obj.CurrentMode,
+	})
+}
+
 func (c *Controller) evaluateObjectWithConfirmation(ctx context.Context, obj *metadata.ObjectMeta) {
 
 	objMetrics, err := c.gatherObjectMetrics(ctx, obj.FileID)

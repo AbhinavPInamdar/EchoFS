@@ -50,6 +50,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/mode", ctrl.HandleGetMode)
 	mux.HandleFunc("/v1/hint", ctrl.HandleSetHint)
+	mux.HandleFunc("/v1/register", ctrl.HandleRegisterObject)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
