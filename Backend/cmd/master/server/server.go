@@ -74,7 +74,7 @@ func NewServer(masterNode *core.MasterNode, logger *log.Logger) *Server {
 	}
 
 	ctx := context.Background()
-	awsConfig, err := aws.NewAWSConfig(ctx, "us-east-1", "", "")
+	awsConfig, err := aws.NewAWSConfig(ctx, "us-east-1", "")
 	if err != nil {
 		logger.Printf("Warning: Failed to initialize AWS config: %v", err)
 	}
