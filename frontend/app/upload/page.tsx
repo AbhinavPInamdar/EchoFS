@@ -1,13 +1,8 @@
-import { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Upload - EchoFS',
-  description: 'Upload files to the EchoFS adaptive consistency distributed file system',
-};
-
 "use client"
 import { useState } from 'react';
 import { Upload, File, CheckCircle, AlertCircle, Download } from 'lucide-react';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 export default function UploadPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -35,7 +30,7 @@ export default function UploadPage() {
       formData.append('file', selectedFile);
       formData.append('user_id', 'demo-user');
 
-      const response = await fetch('http://localhost:8080/api/v1/files/upload', {
+      const response = await fetch(`${API_URL}/api/v1/files/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -55,7 +50,7 @@ export default function UploadPage() {
 
   const handleDownload = async (fileId: string) => {
     try {
-      const response = await fetch(`http://localhost:8080/api/v1/files/${fileId}/download`);
+      const response = await fetch(`${API_URL}/api/v1/files/${fileId}/download`);
       
       if (!response.ok) {
         throw new Error('Download failed');

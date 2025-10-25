@@ -14,6 +14,8 @@ import {
   TrendingUp as TrendingUpIcon
 } from 'lucide-react';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
 function App() {
   const [page, setPage] = useState('home');
 
@@ -237,7 +239,7 @@ const FilesPage = () => {
 
   const fetchFiles = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/v1/files');
+      const response = await fetch(`${API_URL}/api/v1/files`);
       if (!response.ok) {
         throw new Error('Failed to fetch files');
       }
@@ -252,7 +254,7 @@ const FilesPage = () => {
 
   const handleDownload = async (fileId: string, fileName: string) => {
     try {
-      const response = await fetch(`http://localhost:8080/api/v1/files/${fileId}/download`);
+      const response = await fetch(`${API_URL}/api/v1/files/${fileId}/download`);
       if (!response.ok) {
         throw new Error('Download failed');
       }
@@ -359,7 +361,7 @@ const UploadDemoPage = () => {
       formData.append('user_id', 'demo-user');
       formData.append('consistency', consistencyMode);
 
-      const response = await fetch('http://localhost:8080/api/v1/files/upload', {
+      const response = await fetch(`${API_URL}/api/v1/files/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -628,7 +630,7 @@ const MetricsPage = () => {
 
   const fetchMetrics = async () => {
     try {
-      const response = await fetch('http://localhost:8080/metrics/dashboard');
+      const response = await fetch(`${API_URL}/metrics/dashboard`);
       if (!response.ok) {
         throw new Error('Failed to fetch metrics');
       }

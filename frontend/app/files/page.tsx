@@ -1,13 +1,8 @@
-import { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Files - EchoFS',
-  description: 'Manage your uploaded files in the EchoFS distributed file system',
-};
-
 "use client"
 import { useState, useEffect } from 'react';
 import { File, Download, Eye, Calendar, HardDrive } from 'lucide-react';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 interface FileItem {
     file_id: string;
@@ -28,7 +23,7 @@ export default function FilesPage() {
 
     const fetchFiles = async () => {
         try {
-            const response = await fetch('http://localhost:8080/api/v1/files');
+            const response = await fetch(`${API_URL}/api/v1/files`);
             if (!response.ok) {
                 throw new Error('Failed to fetch files');
             }
@@ -43,7 +38,7 @@ export default function FilesPage() {
 
     const handleDownload = async (fileId: string, fileName: string) => {
         try {
-            const response = await fetch(`http://localhost:8080/api/v1/files/${fileId}/download`);
+            const response = await fetch(`${API_URL}/api/v1/files/${fileId}/download`);
             if (!response.ok) {
                 throw new Error('Download failed');
             }
