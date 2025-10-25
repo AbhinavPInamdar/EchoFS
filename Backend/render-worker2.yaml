@@ -15,3 +15,7 @@ services:
         value: https://echofs.onrender.com
       - key: LOG_LEVEL
         value: info
+      - key: AWS_REGION
+        value: us-east-1
+      - key: S3_BUCKET_NAME
+        value: echofs-storage-1761369400

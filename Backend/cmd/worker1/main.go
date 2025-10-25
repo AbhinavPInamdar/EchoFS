@@ -33,15 +33,15 @@ func setConfig() Worker{
 		workerID = "worker1"
 	}
 
-	portStr :=	os.Getenv("WORKER_PORT")
+	portStr :=	os.Getenv("PORT")
 	if portStr == "" {
-		portStr = "8081"
+		portStr = "9081"
 	}
 
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
 		log.Printf("invalid port")
-		port = 8081
+		port = 9081
 	}
 	return Worker{
 		WorkerID: workerID,
