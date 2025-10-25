@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: echofs-backend
+    env: go
+    region: oregon
+    plan: free
+    buildCommand: go mod tidy && go build -o server ./cmd/master/server/
+    startCommand: ./server
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: MASTER_PORT
+        value: 10000
+      - key: AWS_REGION
+        value: us-east-1
+      - key: LOG_LEVEL
+        value: info
