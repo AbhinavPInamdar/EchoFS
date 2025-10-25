@@ -239,6 +239,8 @@ const FilesPage = () => {
 
   const fetchFiles = async () => {
     try {
+      console.log('API_URL:', API_URL);
+      console.log('Fetching from:', `${API_URL}/api/v1/files`);
       const response = await fetch(`${API_URL}/api/v1/files`);
       if (!response.ok) {
         throw new Error('Failed to fetch files');
@@ -246,6 +248,7 @@ const FilesPage = () => {
       const result = await response.json();
       setFiles(result.data || []);
     } catch (err) {
+      console.error('Fetch error:', err);
       setError(err instanceof Error ? err.message : 'Failed to load files');
     } finally {
       setLoading(false);
