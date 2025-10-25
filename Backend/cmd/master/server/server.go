@@ -24,6 +24,13 @@ import (
 	grpcClient "echofs/internal/grpc"
 )
 
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
 type Server struct {
 	masterNode     *core.MasterNode 
 	router         *mux.Router
@@ -102,14 +109,20 @@ func NewServer(masterNode *core.MasterNode, logger *log.Logger) *Server {
 	}
 	
 	workerRegistry := grpcClient.NewWorkerRegistry(logger)
-	if err := workerRegistry.RegisterWorker("worker1", "localhost:9081"); err != nil {
-		logger.Printf("Warning: Failed to register worker1: %v", err)
+	
+	// Get worker URLs from environment variables or use localhost defaults
+	worker1URL := getEnv("WORKER1_URL", "localhost:9081")
+	worker2URL := getEnv("WORKER2_URL", "localhost:9082") 
+	worker3URL := getEnv("WORKER3_URL", "localhost:9083")
+	
+	if err := workerRegistry.RegisterWorker("worker1", worker1URL); err != nil {
+		logger.Printf("Warning: Failed to register worker1 at %s: %v", worker1URL, err)
 	}
-	if err := workerRegistry.RegisterWorker("worker2", "localhost:9082"); err != nil {
-		logger.Printf("Warning: Failed to register worker2: %v", err)
+	if err := workerRegistry.RegisterWorker("worker2", worker2URL); err != nil {
+		logger.Printf("Warning: Failed to register worker2 at %s: %v", worker2URL, err)
 	}
-	if err := workerRegistry.RegisterWorker("worker3", "localhost:9083"); err != nil {
-		logger.Printf("Warning: Failed to register worker3: %v", err)
+	if err := workerRegistry.RegisterWorker("worker3", worker3URL); err != nil {
+		logger.Printf("Warning: Failed to register worker3 at %s: %v", worker3URL, err)
 	}
 
 	s := &Server{
