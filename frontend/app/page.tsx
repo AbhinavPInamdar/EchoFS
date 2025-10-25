@@ -908,7 +908,8 @@ const AdaptiveConsistencyPage = () => {
 
   const fetchControllerStatus = async () => {
     try {
-      const response = await fetch(`${API_URL.replace(':8080', ':8082')}/health`);
+      const controllerURL = API_URL.includes('onrender.com') ? 'https://echofs-consistency-controller.onrender.com' : 'http://localhost:8082';
+      const response = await fetch(`${controllerURL}/health`);
       if (response.ok) {
         setControllerStatus({ status: 'healthy', timestamp: new Date() });
       } else {
@@ -921,7 +922,8 @@ const AdaptiveConsistencyPage = () => {
 
   const fetchConsistencyMode = async () => {
     try {
-      const response = await fetch(`${API_URL.replace(':8080', ':8082')}/v1/mode?object_id=${testObjectId}`);
+      const controllerURL = API_URL.includes('onrender.com') ? 'https://echofs-consistency-controller.onrender.com' : 'http://localhost:8082';
+      const response = await fetch(`${controllerURL}/v1/mode?object_id=${testObjectId}`);
       if (response.ok) {
         const data = await response.json();
         setConsistencyMode(data);
@@ -938,7 +940,8 @@ const AdaptiveConsistencyPage = () => {
 
   const setConsistencyHint = async (hint: string) => {
     try {
-      const response = await fetch(`${API_URL.replace(':8080', ':8082')}/v1/hint`, {
+      const controllerURL = API_URL.includes('onrender.com') ? 'https://echofs-consistency-controller.onrender.com' : 'http://localhost:8082';
+      const response = await fetch(`${controllerURL}/v1/hint`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ object_id: testObjectId, hint })
