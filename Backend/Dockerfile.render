@@ -1,0 +1,40 @@
+FROM golang:alpine AS builder
+
+# Install git for Go modules
+RUN apk add --no-cache git
+
+WORKDIR /app
+
+# Set Go environment
+ENV GO111MODULE=on
+ENV CGO_ENABLED=0
+ENV GOOS=linux
+
+# Copy go.mod and go.sum first
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download
+
+# Copy all source files
+COPY . .
+
+# Build the application
+RUN go build -o server ./cmd/master/server/
+
+# Final stage - minimal runtime
+FROM alpine:latest
+
+# Install ca-certificates for HTTPS
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /app
+
+# Copy the binary from builder
+COPY --from=builder /app/server .
+
+# Expose port 10000 for Render
+EXPOSE 10000
+
+# Run the server
+CMD ["./server"]
