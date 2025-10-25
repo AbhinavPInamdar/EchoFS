@@ -24,6 +24,7 @@ type FileMetadata struct {
 	FileID          string    `dynamodbav:"file_id"`
 	FileName        string    `dynamodbav:"file_name"`
 	FileSize        int64     `dynamodbav:"file_size"`
+	OwnerID         string    `dynamodbav:"owner_id"`
 	UploadedBy      string    `dynamodbav:"uploaded_by"`
 	CreatedAt       time.Time `dynamodbav:"created_at"`
 	UpdatedAt       time.Time `dynamodbav:"updated_at"`
@@ -283,6 +284,24 @@ func (d *DynamoDBService) createFilesTable(ctx context.Context) error {
 				AttributeName: aws.String("file_id"),
 				AttributeType: types.ScalarAttributeTypeS,
 			},
+			{
+				AttributeName: aws.String("owner_id"),
+				AttributeType: types.ScalarAttributeTypeS,
+			},
+		},
+		GlobalSecondaryIndexes: []types.GlobalSecondaryIndex{
+			{
+				IndexName: aws.String("owner-id-index"),
+				KeySchema: []types.KeySchemaElement{
+					{
+						AttributeName: aws.String("owner_id"),
+						KeyType:       types.KeyTypeHash,
+					},
+				},
+				Projection: &types.Projection{
+					ProjectionType: types.ProjectionTypeAll,
+				},
+			},
 		},
 		BillingMode: types.BillingModePayPerRequest,
 	})
@@ -359,6 +378,104 @@ func (d *DynamoDBService) createSessionsTable(ctx context.Context) error {
 			return nil
 		}
 		return err
+	}
+
+	return nil
+}
+// ListFilesByOwner retrieves all files owned by a specific user
+func (d *DynamoDBService) ListFilesByOwner(ctx context.Context, ownerID string) ([]*FileMetadata, error) {
+	// If ownerID is empty, return all files (for backward compatibility)
+	if ownerID == "" {
+		return d.ListAllFiles(ctx)
+	}
+
+	// Use GSI to query files by owner_id for better performance
+	result, err := d.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(d.tables.Files),
+		IndexName:              aws.String("owner-id-index"),
+		KeyConditionExpression: aws.String("owner_id = :owner_id"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":owner_id": &types.AttributeValueMemberS{Value: ownerID},
+		},
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to list files by owner: %w", err)
+	}
+
+	var files []*FileMetadata
+	for _, item := range result.Items {
+		var file FileMetadata
+		err = attributevalue.UnmarshalMap(item, &file)
+		if err != nil {
+			continue
+		}
+		files = append(files, &file)
+	}
+
+	return files, nil
+}
+
+// ListAllFiles retrieves all files (for backward compatibility)
+func (d *DynamoDBService) ListAllFiles(ctx context.Context) ([]*FileMetadata, error) {
+	result, err := d.client.Scan(ctx, &dynamodb.ScanInput{
+		TableName: aws.String(d.tables.Files),
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to list all files: %w", err)
+	}
+
+	var files []*FileMetadata
+	for _, item := range result.Items {
+		var file FileMetadata
+		err = attributevalue.UnmarshalMap(item, &file)
+		if err != nil {
+			continue
+		}
+		files = append(files, &file)
+	}
+
+	return files, nil
+}
+
+// GetFileMetadata retrieves metadata for a specific file
+func (d *DynamoDBService) GetFileMetadata(ctx context.Context, fileID string) (*FileMetadata, error) {
+	result, err := d.client.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(d.tables.Files),
+		Key: map[string]types.AttributeValue{
+			"file_id": &types.AttributeValueMemberS{Value: fileID},
+		},
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file metadata: %w", err)
+	}
+
+	if result.Item == nil {
+		return nil, fmt.Errorf("file not found: %s", fileID)
+	}
+
+	var file FileMetadata
+	err = attributevalue.UnmarshalMap(result.Item, &file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal file metadata: %w", err)
+	}
+
+	return &file, nil
+}
+
+// DeleteFileMetadata deletes metadata for a specific file
+func (d *DynamoDBService) DeleteFileMetadata(ctx context.Context, fileID string) error {
+	_, err := d.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName: aws.String(d.tables.Files),
+		Key: map[string]types.AttributeValue{
+			"file_id": &types.AttributeValueMemberS{Value: fileID},
+		},
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to delete file metadata: %w", err)
 	}
 
 	return nil

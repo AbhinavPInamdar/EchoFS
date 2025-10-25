@@ -19,6 +19,7 @@ import (
 	"echofs/pkg/fileops/Compressor"
 	"echofs/internal/storage"
 	"echofs/internal/metrics"
+	"echofs/internal/auth"
 	"echofs/pkg/aws"
 	"echofs/pkg/database"
 	grpcClient "echofs/internal/grpc"
@@ -40,6 +41,9 @@ type Server struct {
 	dynamoDB       *database.DynamoDBService
 	awsConfig      *aws.AWSConfig
 	workerRegistry *grpcClient.WorkerRegistry
+	authService    *auth.AuthService
+	authHandlers   *auth.AuthHandlers
+	authMiddleware *auth.AuthMiddleware
 }
 
 type InitUploadRequest struct {
@@ -125,6 +129,40 @@ func NewServer(masterNode *core.MasterNode, logger *log.Logger) *Server {
 		logger.Printf("Warning: Failed to register worker3 at %s: %v", worker3URL, err)
 	}
 
+	// Initialize authentication system
+	var authService *auth.AuthService
+	var authHandlers *auth.AuthHandlers
+	var authMiddleware *auth.AuthMiddleware
+
+	if awsConfig != nil {
+		// Create JWT manager
+		jwtSecret := getEnv("JWT_SECRET", "your-super-secret-jwt-key-change-in-production")
+		jwtManager := auth.NewJWTManager(jwtSecret, 24*time.Hour)
+
+		// Create user repository
+		userRepo := auth.NewUserRepository(awsConfig.DynamoDB, "echofs-users")
+		if err := userRepo.CreateTable(ctx); err != nil {
+			logger.Printf("Warning: Failed to create users table: %v", err)
+		}
+
+		// Create auth service and handlers
+		authService = auth.NewAuthService(userRepo, jwtManager, logger)
+		authHandlers = auth.NewAuthHandlers(authService)
+		authMiddleware = auth.NewAuthMiddleware(jwtManager)
+		
+		// Set up OAuth handlers
+		oauthHandlers := auth.NewOAuthHandlers(authService, jwtManager)
+		authHandlers.SetOAuthHandlers(oauthHandlers)
+		
+		// Set up simple OAuth handler (fallback)
+		simpleOAuthHandler := auth.NewSimpleOAuthHandler(jwtManager)
+		authHandlers.SetSimpleOAuthHandler(simpleOAuthHandler)
+
+		logger.Printf("✅ Authentication system initialized")
+	} else {
+		logger.Printf("⚠️  Authentication disabled (AWS not configured)")
+	}
+
 	s := &Server{
 		masterNode:     masterNode,
 		logger:         logger,
@@ -134,32 +172,73 @@ func NewServer(masterNode *core.MasterNode, logger *log.Logger) *Server {
 		dynamoDB:       dynamoDB,
 		awsConfig:      awsConfig,
 		workerRegistry: workerRegistry,
+		authService:    authService,
+		authHandlers:   authHandlers,
+		authMiddleware: authMiddleware,
 	}
 	s.setupRoutes()
 	return s
 }
 
 func (s *Server) setupRoutes() {
-
 	s.router.Use(metrics.HTTPMetricsMiddleware)
 	
+	// Public routes (no auth required)
 	s.router.Handle("/metrics", promhttp.Handler()).Methods("GET")
 	s.router.HandleFunc("/metrics/dashboard", metrics.DashboardHandler).Methods("GET")
+	s.router.HandleFunc("/health", s.HealthCheck).Methods("GET")
 	
 	api := s.router.PathPrefix("/api/v1").Subrouter()
 	
-	api.HandleFunc("/files/upload", s.UploadFile).Methods("POST")
-	api.HandleFunc("/files/{fileId}/download", s.DownloadFile).Methods("GET")
-	api.HandleFunc("/files", s.ListFiles).Methods("GET")
+	// Authentication routes (public)
+	if s.authHandlers != nil {
+		auth := api.PathPrefix("/auth").Subrouter()
+		auth.HandleFunc("/register", s.authHandlers.Register).Methods("POST")
+		auth.HandleFunc("/login", s.authHandlers.Login).Methods("POST")
+		auth.HandleFunc("/refresh", s.authHandlers.RefreshToken).Methods("POST")
+		auth.HandleFunc("/logout", s.authHandlers.Logout).Methods("POST")
+		
+		// OAuth callback endpoint
+		if s.authHandlers.OAuthHandlers != nil {
+			auth.HandleFunc("/oauth/callback", s.authHandlers.OAuthHandlers.HandleOAuthCallback).Methods("POST")
+		}
+		
+		// Simple OAuth endpoint (fallback)
+		if s.authHandlers.SimpleOAuthHandler != nil {
+			auth.HandleFunc("/oauth/simple", s.authHandlers.SimpleOAuthHandler.HandleSimpleOAuth).Methods("POST")
+		}
+		
+		// Protected auth routes
+		if s.authMiddleware != nil {
+			auth.HandleFunc("/profile", s.authMiddleware.RequireAuth(s.authHandlers.Profile)).Methods("GET")
+		}
+	}
 	
-	api.HandleFunc("/files/upload/init", s.InitUpload).Methods("POST")
-	api.HandleFunc("/files/upload/chunk", s.UploadChunk).Methods("POST")
-	api.HandleFunc("/files/upload/complete", s.CompleteUpload).Methods("POST")
+	// File operations - protected routes
+	if s.authMiddleware != nil {
+		api.HandleFunc("/files/upload", s.authMiddleware.RequireAuth(s.UploadFile)).Methods("POST")
+		api.HandleFunc("/files/{fileId}/download", s.authMiddleware.RequireAuth(s.DownloadFile)).Methods("GET")
+		api.HandleFunc("/files", s.authMiddleware.RequireAuth(s.ListFiles)).Methods("GET")
+		api.HandleFunc("/files/{fileId}", s.authMiddleware.RequireAuth(s.DeleteFile)).Methods("DELETE")
+		
+		api.HandleFunc("/files/upload/init", s.authMiddleware.RequireAuth(s.InitUpload)).Methods("POST")
+		api.HandleFunc("/files/upload/chunk", s.authMiddleware.RequireAuth(s.UploadChunk)).Methods("POST")
+		api.HandleFunc("/files/upload/complete", s.authMiddleware.RequireAuth(s.CompleteUpload)).Methods("POST")
+	} else {
+		// Fallback for when auth is disabled
+		api.HandleFunc("/files/upload", s.UploadFile).Methods("POST")
+		api.HandleFunc("/files/{fileId}/download", s.DownloadFile).Methods("GET")
+		api.HandleFunc("/files", s.ListFiles).Methods("GET")
+		api.HandleFunc("/files/{fileId}", s.DeleteFile).Methods("DELETE")
+		
+		api.HandleFunc("/files/upload/init", s.InitUpload).Methods("POST")
+		api.HandleFunc("/files/upload/chunk", s.UploadChunk).Methods("POST")
+		api.HandleFunc("/files/upload/complete", s.CompleteUpload).Methods("POST")
+	}
 	
+	// Worker management routes (internal, no auth needed)
 	api.HandleFunc("/workers/register", s.RegisterWorker).Methods("POST")
 	api.HandleFunc("/workers/{workerId}/heartbeat", s.WorkerHeartbeat).Methods("POST")
-	
-	api.HandleFunc("/health", s.HealthCheck).Methods("GET")
 	api.HandleFunc("/workers/health", s.WorkersHealthCheck).Methods("GET")
 }
 
@@ -201,10 +280,22 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 	
-	userID := r.FormValue("user_id")
-	if userID == "" {
-		s.sendErrorResponse(w, "user_id is required", http.StatusBadRequest)
-		return
+	// Get authenticated user from context
+	var userID string
+	if s.authMiddleware != nil {
+		user, ok := auth.GetUserFromContext(r.Context())
+		if !ok {
+			s.sendErrorResponse(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
+		userID = user.UserID
+		s.logger.Printf("File upload by authenticated user: %s (%s)", user.Username, userID)
+	} else {
+		// Fallback for when auth is disabled
+		userID = r.FormValue("user_id")
+		if userID == "" {
+			userID = "anonymous"
+		}
 	}
 	
 	sessionID := uuid.New().String()
@@ -379,8 +470,26 @@ func (s *Server) InitUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	if req.FileName == "" || req.FileSize <= 0 || req.UserID == "" {
-		s.sendErrorResponse(w, "Missing required fields", http.StatusBadRequest)
+	// Get authenticated user from context
+	var userID string
+	if s.authMiddleware != nil {
+		user, ok := auth.GetUserFromContext(r.Context())
+		if !ok {
+			s.sendErrorResponse(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
+		userID = user.UserID
+		s.logger.Printf("Upload init by authenticated user: %s (%s)", user.Username, userID)
+	} else {
+		// Fallback for when auth is disabled
+		userID = req.UserID
+		if userID == "" {
+			userID = "anonymous"
+		}
+	}
+	
+	if req.FileName == "" || req.FileSize <= 0 {
+		s.sendErrorResponse(w, "Missing required fields (file_name, file_size)", http.StatusBadRequest)
 		return
 	}
 	
@@ -419,7 +528,7 @@ func (s *Server) InitUpload(w http.ResponseWriter, r *http.Request) {
 	
 	session := &core.UploadSession{
 		SessionID:       sessionID,
-		UserID:          req.UserID,
+		UserID:          userID,
 		FileName:        req.FileName,
 		FileSize:        req.FileSize,
 		ChunkSize:       chunkSize,
@@ -459,6 +568,34 @@ func (s *Server) DownloadFile(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	fileId := vars["fileId"]
 	s.logger.Printf("DownloadFile called for fileId: %s", fileId)
+	
+	// Get authenticated user from context
+	var userID string
+	if s.authMiddleware != nil {
+		user, ok := auth.GetUserFromContext(r.Context())
+		if !ok {
+			s.sendErrorResponse(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
+		userID = user.UserID
+		
+		// Check if user owns this file
+		if s.dynamoDB != nil {
+			fileMetadata, err := s.dynamoDB.GetFileMetadata(r.Context(), fileId)
+			if err != nil {
+				s.sendErrorResponse(w, "File not found", http.StatusNotFound)
+				return
+			}
+			
+			if fileMetadata.OwnerID != userID && fileMetadata.UploadedBy != userID {
+				s.logger.Printf("User %s attempted to download file %s owned by %s", userID, fileId, fileMetadata.OwnerID)
+				s.sendErrorResponse(w, "Access denied", http.StatusForbidden)
+				return
+			}
+		}
+		
+		s.logger.Printf("File download by authenticated user: %s (%s)", user.Username, userID)
+	}
 	
 	storageDir := filepath.Join("./storage/uploads", fileId)
 	
@@ -509,6 +646,35 @@ func (s *Server) DownloadFile(w http.ResponseWriter, r *http.Request) {
 func (s *Server) ListFiles(w http.ResponseWriter, r *http.Request) {
 	s.logger.Println("ListFiles called")
 	
+	// Get authenticated user from context
+	var userID string
+	if s.authMiddleware != nil {
+		user, ok := auth.GetUserFromContext(r.Context())
+		if !ok {
+			s.sendErrorResponse(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
+		userID = user.UserID
+		s.logger.Printf("Listing files for authenticated user: %s (%s)", user.Username, userID)
+	} else {
+		// Fallback for when auth is disabled - show all files
+		userID = ""
+	}
+	
+	// Use DynamoDB to list files if available, otherwise fallback to filesystem
+	if s.dynamoDB != nil {
+		files, err := s.dynamoDB.ListFilesByOwner(r.Context(), userID)
+		if err != nil {
+			s.logger.Printf("Failed to list files from DynamoDB: %v", err)
+			s.sendErrorResponse(w, "Failed to list files", http.StatusInternalServerError)
+			return
+		}
+		
+		s.sendSuccessResponse(w, "Files listed successfully", files)
+		return
+	}
+	
+	// Fallback to filesystem listing (for backward compatibility)
 	uploadsDir := "./storage/uploads"
 	
 	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
@@ -555,6 +721,60 @@ func (s *Server) ListFiles(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	s.sendSuccessResponse(w, "Files listed successfully", files)
+}
+
+func (s *Server) DeleteFile(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	fileId := vars["fileId"]
+	s.logger.Printf("DeleteFile called for fileId: %s", fileId)
+	
+	// Get authenticated user from context
+	var userID string
+	if s.authMiddleware != nil {
+		user, ok := auth.GetUserFromContext(r.Context())
+		if !ok {
+			s.sendErrorResponse(w, "Authentication required", http.StatusUnauthorized)
+			return
+		}
+		userID = user.UserID
+		
+		// Check if user owns this file
+		if s.dynamoDB != nil {
+			fileMetadata, err := s.dynamoDB.GetFileMetadata(r.Context(), fileId)
+			if err != nil {
+				s.sendErrorResponse(w, "File not found", http.StatusNotFound)
+				return
+			}
+			
+			if fileMetadata.OwnerID != userID && fileMetadata.UploadedBy != userID {
+				s.logger.Printf("User %s attempted to delete file %s owned by %s", userID, fileId, fileMetadata.OwnerID)
+				s.sendErrorResponse(w, "Access denied", http.StatusForbidden)
+				return
+			}
+			
+			// Delete from DynamoDB
+			if err := s.dynamoDB.DeleteFileMetadata(r.Context(), fileId); err != nil {
+				s.logger.Printf("Failed to delete file metadata: %v", err)
+				s.sendErrorResponse(w, "Failed to delete file", http.StatusInternalServerError)
+				return
+			}
+		}
+		
+		s.logger.Printf("File deletion by authenticated user: %s (%s)", user.Username, userID)
+	}
+	
+	// Delete from filesystem
+	storageDir := filepath.Join("./storage/uploads", fileId)
+	if err := os.RemoveAll(storageDir); err != nil {
+		s.logger.Printf("Failed to delete file directory: %v", err)
+		s.sendErrorResponse(w, "Failed to delete file from storage", http.StatusInternalServerError)
+		return
+	}
+	
+	s.sendSuccessResponse(w, "File deleted successfully", map[string]string{
+		"file_id": fileId,
+		"status":  "deleted",
+	})
 }
 
 func (s *Server) RegisterWorker(w http.ResponseWriter, r *http.Request) {

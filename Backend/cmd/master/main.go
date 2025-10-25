@@ -32,7 +32,17 @@ func main() {
 	
 	masterNode := core.NewMasterNode(cfg, logger)
 	
-	logger.Println("TODO: Initialize worker registry, metadata store, etc.")
+	// Initialize dependencies
+	logger.Println("Initializing dependencies...")
+	workerRegistry := core.NewInMemoryWorkerRegistry(logger)
+	metadataStore := core.NewInMemoryMetadataStore(logger)
+	sessionManager := core.NewInMemorySessionManager(logger)
+	chunkPlacer := core.NewSimpleChunkPlacer(workerRegistry, logger)
+	healthChecker := core.NewSimpleHealthChecker(workerRegistry, logger)
+	
+	// Set dependencies
+	masterNode.SetDependencies(workerRegistry, metadataStore, sessionManager, chunkPlacer, healthChecker)
+	logger.Println("Dependencies initialized successfully")
 	
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

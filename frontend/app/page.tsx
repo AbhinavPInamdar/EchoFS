@@ -11,13 +11,81 @@ import {
   Activity as ActivityIcon,
   HardDrive as HardDriveIcon,
   Clock as ClockIcon,
-  TrendingUp as TrendingUpIcon
+  TrendingUp as TrendingUpIcon,
+  User as UserIcon,
+  LogOut as LogOutIcon
 } from 'lucide-react';
+import AuthModal from '../components/AuthModal';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? 'https://echofs.onrender.com' : 'http://localhost:8080');
 
 function App() {
   const [page, setPage] = useState('home');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  useEffect(() => {
+    // Check for OAuth callback
+    const urlParams = new URLSearchParams(window.location.search);
+    const oauthSuccess = urlParams.get('oauth_success');
+    const userParam = urlParams.get('user');
+    const tokenParam = urlParams.get('token');
+    const error = urlParams.get('error');
+
+    if (oauthSuccess && userParam) {
+      try {
+        const oauthUser = JSON.parse(decodeURIComponent(userParam));
+        setUser(oauthUser);
+        setIsAuthenticated(true);
+        
+        // Store token if available
+        if (tokenParam) {
+          const token = decodeURIComponent(tokenParam);
+          localStorage.setItem('echofs_token', token);
+          localStorage.setItem('echofs_user', JSON.stringify(oauthUser));
+        }
+        
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } catch (err) {
+        console.error('Failed to parse OAuth user data:', err);
+      }
+    } else if (error) {
+      console.error('OAuth error:', error);
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    // Check for existing auth token
+    const token = localStorage.getItem('echofs_token');
+    const userData = localStorage.getItem('echofs_user');
+
+    if (token && userData) {
+      try {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+        setIsAuthenticated(true);
+      } catch (err) {
+        // Invalid stored data, clear it
+        localStorage.removeItem('echofs_token');
+        localStorage.removeItem('echofs_user');
+      }
+    }
+  }, []);
+
+  const handleAuthSuccess = (token: string, userData: any) => {
+    setUser(userData);
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('echofs_token');
+    localStorage.removeItem('echofs_user');
+    setUser(null);
+    setIsAuthenticated(false);
+    setPage('home');
+  };
 
   return (
     <>
@@ -74,50 +142,102 @@ function App() {
             <LayoutIcon className="text-primary" size={20} />
             <h1 className="text-lg font-semibold text-primary">EchoFS</h1>
           </div>
-          <div className="flex space-x-8">
+          <div className="flex items-center space-x-8">
             <button
               onClick={() => setPage('home')}
               className={`text-sm font-medium transition-colors duration-200 ${page === 'home' ? 'text-primary' : 'text-accent hover:text-primary'}`}
             >
               Home
             </button>
-            <button
-              onClick={() => setPage('upload')}
-              className={`text-sm font-medium transition-colors duration-200 ${page === 'upload' ? 'text-primary' : 'text-accent hover:text-primary'}`}
-            >
-              Upload
-            </button>
-            <button
-              onClick={() => setPage('files')}
-              className={`text-sm font-medium transition-colors duration-200 ${page === 'files' ? 'text-primary' : 'text-accent hover:text-primary'}`}
-            >
-              Files
-            </button>
-            <button
-              onClick={() => setPage('adaptive-consistency')}
-              className={`text-sm font-medium transition-colors duration-200 ${page === 'adaptive-consistency' ? 'text-primary' : 'text-accent hover:text-primary'}`}
-            >
-              Consistency
-            </button>
-            <button
-              onClick={() => setPage('metrics')}
-              className={`text-sm font-medium transition-colors duration-200 ${page === 'metrics' ? 'text-primary' : 'text-accent hover:text-primary'}`}
-            >
-              Metrics
-            </button>
+            {isAuthenticated && (
+              <>
+                <button
+                  onClick={() => setPage('upload')}
+                  className={`text-sm font-medium transition-colors duration-200 ${page === 'upload' ? 'text-primary' : 'text-accent hover:text-primary'}`}
+                >
+                  Upload
+                </button>
+                <button
+                  onClick={() => setPage('files')}
+                  className={`text-sm font-medium transition-colors duration-200 ${page === 'files' ? 'text-primary' : 'text-accent hover:text-primary'}`}
+                >
+                  My Files
+                </button>
+                <button
+                  onClick={() => setPage('adaptive-consistency')}
+                  className={`text-sm font-medium transition-colors duration-200 ${page === 'adaptive-consistency' ? 'text-primary' : 'text-accent hover:text-primary'}`}
+                >
+                  Consistency
+                </button>
+                <button
+                  onClick={() => setPage('metrics')}
+                  className={`text-sm font-medium transition-colors duration-200 ${page === 'metrics' ? 'text-primary' : 'text-accent hover:text-primary'}`}
+                >
+                  Metrics
+                </button>
+              </>
+            )}
+
+            <div className="flex items-center space-x-4">
+              {isAuthenticated ? (
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2">
+                    <UserIcon size={16} className="text-accent" />
+                    <span className="text-sm text-primary">{user?.username}</span>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center space-x-1 text-sm text-accent hover:text-primary transition-colors"
+                  >
+                    <LogOutIcon size={16} />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="bg-primary text-white px-4 py-2 text-sm font-medium hover:bg-secondary transition-colors"
+                >
+                  Sign In
+                </button>
+              )}
+            </div>
           </div>
         </nav>
       </header>
 
       <main>
         {page === 'home' && <HomePage />}
-        {page === 'upload' && <UploadDemoPage />}
-        {page === 'files' && <FilesPage />}
+        {page === 'upload' && isAuthenticated && <UploadDemoPage />}
+        {page === 'files' && isAuthenticated && <FilesPage />}
         {page === 'hld' && <HighLevelDesignPage />}
         {page === 'file-manager' && <FileManagementPage />}
-        {page === 'metrics' && <MetricsPage />}
-        {page === 'adaptive-consistency' && <AdaptiveConsistencyPage />}
+        {page === 'metrics' && isAuthenticated && <MetricsPage />}
+        {page === 'adaptive-consistency' && isAuthenticated && <AdaptiveConsistencyPage />}
+
+        {/* Show login prompt for protected pages when not authenticated */}
+        {!isAuthenticated && ['upload', 'files', 'metrics', 'adaptive-consistency'].includes(page) && (
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-center">
+              <UserIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <h2 className="text-2xl font-light text-primary mb-2">Authentication Required</h2>
+              <p className="text-accent mb-6">Please sign in to access this feature</p>
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="bg-primary text-white px-6 py-3 font-medium hover:bg-secondary transition-colors"
+              >
+                Sign In
+              </button>
+            </div>
+          </div>
+        )}
       </main>
+
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onAuthSuccess={handleAuthSuccess}
+      />
     </>
   );
 }
@@ -241,8 +361,28 @@ const FilesPage = () => {
     try {
       console.log('API_URL:', API_URL);
       console.log('Fetching from:', `${API_URL}/api/v1/files`);
-      const response = await fetch(`${API_URL}/api/v1/files`);
+
+      const token = localStorage.getItem('echofs_token');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${API_URL}/api/v1/files`, {
+        headers
+      });
+
       if (!response.ok) {
+        if (response.status === 401) {
+          // Token expired or invalid
+          localStorage.removeItem('echofs_token');
+          localStorage.removeItem('echofs_user');
+          window.location.reload();
+          return;
+        }
         throw new Error('Failed to fetch files');
       }
       const result = await response.json();
@@ -257,8 +397,25 @@ const FilesPage = () => {
 
   const handleDownload = async (fileId: string, fileName: string) => {
     try {
-      const response = await fetch(`${API_URL}/api/v1/files/${fileId}/download`);
+      const token = localStorage.getItem('echofs_token');
+      const headers: HeadersInit = {};
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${API_URL}/api/v1/files/${fileId}/download`, {
+        headers
+      });
+
       if (!response.ok) {
+        if (response.status === 401) {
+          alert('Session expired. Please sign in again.');
+          localStorage.removeItem('echofs_token');
+          localStorage.removeItem('echofs_user');
+          window.location.reload();
+          return;
+        }
         throw new Error('Download failed');
       }
 
@@ -273,6 +430,42 @@ const FilesPage = () => {
       document.body.removeChild(a);
     } catch (err) {
       alert('Download failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+    }
+  };
+
+  const handleDelete = async (fileId: string, fileName: string) => {
+    if (!confirm(`Are you sure you want to delete "${fileName}"?`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('echofs_token');
+      const headers: HeadersInit = {};
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${API_URL}/api/v1/files/${fileId}`, {
+        method: 'DELETE',
+        headers
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          alert('Session expired. Please sign in again.');
+          localStorage.removeItem('echofs_token');
+          localStorage.removeItem('echofs_user');
+          window.location.reload();
+          return;
+        }
+        throw new Error('Delete failed');
+      }
+
+      // Refresh the file list
+      fetchFiles();
+    } catch (err) {
+      alert('Delete failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
     }
   };
 
@@ -320,12 +513,20 @@ const FilesPage = () => {
                     <h3 className="font-medium text-black">{file.name}</h3>
                     <p className="text-sm text-gray-500">{formatFileSize(file.size)} • {new Date(file.uploaded).toLocaleString()}</p>
                   </div>
-                  <button
-                    onClick={() => handleDownload(file.file_id, file.name)}
-                    className="bg-black text-white px-4 py-2 hover:bg-gray-800 transition-colors"
-                  >
-                    Download
-                  </button>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleDownload(file.file_id, file.name)}
+                      className="bg-black text-white px-4 py-2 hover:bg-gray-800 transition-colors"
+                    >
+                      Download
+                    </button>
+                    <button
+                      onClick={() => handleDelete(file.file_id, file.name)}
+                      className="bg-red-600 text-white px-4 py-2 hover:bg-red-700 transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -359,13 +560,20 @@ const UploadDemoPage = () => {
     setError(null);
 
     try {
+      const token = localStorage.getItem('echofs_token');
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
       const formData = new FormData();
       formData.append('file', selectedFile);
-      formData.append('user_id', 'demo-user');
       formData.append('consistency', consistencyMode);
 
       const response = await fetch(`${API_URL}/api/v1/files/upload`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
         body: formData,
       });
 
@@ -912,7 +1120,7 @@ const AdaptiveConsistencyPage = () => {
       'https://echofs-consistency-controller.onrender.com',
       'http://localhost:8082'
     ];
-    
+
     for (const controllerURL of controllerURLs) {
       try {
         console.log('Checking controller at:', controllerURL);
@@ -927,7 +1135,7 @@ const AdaptiveConsistencyPage = () => {
         continue;
       }
     }
-    
+
     setControllerStatus({ status: 'offline', timestamp: new Date() });
   };
 
@@ -936,7 +1144,7 @@ const AdaptiveConsistencyPage = () => {
       'https://echofs-consistency-controller.onrender.com',
       'http://localhost:8082'
     ];
-    
+
     for (const controllerURL of controllerURLs) {
       try {
         console.log('Fetching consistency mode from:', controllerURL);
@@ -955,7 +1163,7 @@ const AdaptiveConsistencyPage = () => {
         continue;
       }
     }
-    
+
     setError('Controller not available');
     setLoading(false);
   };
@@ -965,7 +1173,7 @@ const AdaptiveConsistencyPage = () => {
       'https://echofs-consistency-controller.onrender.com',
       'http://localhost:8082'
     ];
-    
+
     for (const controllerURL of controllerURLs) {
       try {
         // First try to register the object if it doesn't exist
@@ -1000,7 +1208,7 @@ const AdaptiveConsistencyPage = () => {
         continue;
       }
     }
-    
+
     setError('Failed to communicate with controller');
   };
 

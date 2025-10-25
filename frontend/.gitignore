@@ -6,6 +6,7 @@ dist/
 /settings.json
 eslint.config.mjs
 
+*env.local
 
 
 # OS

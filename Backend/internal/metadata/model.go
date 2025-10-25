@@ -5,16 +5,17 @@ import (
 )
 
 type FileMetadata struct {
-	FileID       string    `json:"file_id"`
-	Size         int64     `json:"size"`
-	OriginalName string    `json:"original_name"`
-	ChunkSize    int       `json:"chunk_size"`
-	TotalChunks  int       `json:"total_chunks"`
-	MD5Hash      string    `json:"md5_hash"`
-	UploadedBy   string    `json:"uploaded_by"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
-	Status       string    `json:"status"`
+	FileID       string    `json:"file_id" dynamodb:"file_id"`
+	Size         int64     `json:"size" dynamodb:"size"`
+	OriginalName string    `json:"original_name" dynamodb:"original_name"`
+	ChunkSize    int       `json:"chunk_size" dynamodb:"chunk_size"`
+	TotalChunks  int       `json:"total_chunks" dynamodb:"total_chunks"`
+	MD5Hash      string    `json:"md5_hash" dynamodb:"md5_hash"`
+	OwnerID      string    `json:"owner_id" dynamodb:"owner_id"`
+	UploadedBy   string    `json:"uploaded_by" dynamodb:"uploaded_by"` // Keep for backward compatibility
+	CreatedAt    time.Time `json:"created_at" dynamodb:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at" dynamodb:"updated_at"`
+	Status       string    `json:"status" dynamodb:"status"`
 }
 
 type ChunkRef struct {
@@ -39,15 +40,17 @@ type ObjectMeta struct {
 	LastModeChange time.Time            `json:"last_mode_change"`
 	CreatedAt      time.Time            `json:"created_at"`
 	UpdatedAt      time.Time            `json:"updated_at"`
-	UploadedBy     string               `json:"uploaded_by"`
+	OwnerID        string               `json:"owner_id"`
+	UploadedBy     string               `json:"uploaded_by"` // Keep for backward compatibility
 	Status         string               `json:"status"`
 }
 
-func NewObjectMeta(fileID, name, uploadedBy string, size int64) *ObjectMeta {
+func NewObjectMeta(fileID, name, ownerID string, size int64) *ObjectMeta {
 	now := time.Now()
 	return &ObjectMeta{
 		FileID:         fileID,
 		Name:           name,
+		OwnerID:        ownerID,
 		Size:           size,
 		Chunks:         make([]ChunkRef, 0),
 		ModeHint:       "Auto",

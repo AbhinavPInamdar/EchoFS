@@ -1,7 +1,6 @@
+# Design and Research Materials
 /Design
 /.vscode
-
-# Research Paper Materials (keep separate)
 EchoFS-Research-Paper/
 *Research-Paper*/
 
@@ -13,6 +12,9 @@ EchoFS-Research-Paper/
 echofs/Backend/aws_config.sh
 echofs/Backend/.env
 *.env
+*.env.local
+.env.local
+frontend/.env.local
 
 # AWS credentials
 aws_config.sh
@@ -49,4 +51,14 @@ Thumbs.db
 
 # Temporary files
 *.tmp
-*.tempBackend/.env.render
+*.temp
+Backend/.env.render
+
+# Node.js
+node_modules/
+.next/
+out/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
