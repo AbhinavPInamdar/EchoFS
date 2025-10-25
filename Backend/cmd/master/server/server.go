@@ -154,10 +154,10 @@ func (s *Server) Start(port int) error {
 	s.logger.Printf("Starting server on port %d", port)
 
 	c := cors.New(cors.Options{
-		AllowedOrigins: []string{"http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://127.0.0.1:3000", "http://127.0.0.1:3001", "http://127.0.0.1:3002"},
+		AllowedOrigins: []string{"*"},
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders: []string{"*"},
-		AllowCredentials: true,
+		AllowCredentials: false,
 	})
 	
 	handler := c.Handler(s.router)
