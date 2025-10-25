@@ -907,76 +907,101 @@ const AdaptiveConsistencyPage = () => {
   }, []);
 
   const fetchControllerStatus = async () => {
-    try {
-      const controllerURL = API_URL.includes('onrender.com') ? 'https://echofs-consistency-controller.onrender.com' : 'http://localhost:8082';
-      console.log('Checking controller at:', controllerURL);
-      const response = await fetch(`${controllerURL}/health`);
-      console.log('Controller response status:', response.status);
-      if (response.ok) {
-        setControllerStatus({ status: 'healthy', timestamp: new Date() });
-      } else {
-        setControllerStatus({ status: 'unhealthy', timestamp: new Date() });
+    // Always try production first, then fallback to localhost
+    const controllerURLs = [
+      'https://echofs-consistency-controller.onrender.com',
+      'http://localhost:8082'
+    ];
+    
+    for (const controllerURL of controllerURLs) {
+      try {
+        console.log('Checking controller at:', controllerURL);
+        const response = await fetch(`${controllerURL}/health`);
+        console.log('Controller response status:', response.status);
+        if (response.ok) {
+          setControllerStatus({ status: 'healthy', timestamp: new Date() });
+          return;
+        }
+      } catch (err) {
+        console.error('Controller fetch error for', controllerURL, ':', err);
+        continue;
       }
-    } catch (err) {
-      console.error('Controller fetch error:', err);
-      setControllerStatus({ status: 'offline', timestamp: new Date() });
     }
+    
+    setControllerStatus({ status: 'offline', timestamp: new Date() });
   };
 
   const fetchConsistencyMode = async () => {
-    try {
-      const controllerURL = API_URL.includes('onrender.com') ? 'https://echofs-consistency-controller.onrender.com' : 'http://localhost:8082';
-      console.log('Fetching consistency mode from:', controllerURL);
-      const response = await fetch(`${controllerURL}/v1/mode?object_id=${testObjectId}`);
-      console.log('Mode response status:', response.status);
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Mode data:', data);
-        setConsistencyMode(data);
-        setError(null);
-      } else {
-        setError('Failed to fetch consistency mode');
+    const controllerURLs = [
+      'https://echofs-consistency-controller.onrender.com',
+      'http://localhost:8082'
+    ];
+    
+    for (const controllerURL of controllerURLs) {
+      try {
+        console.log('Fetching consistency mode from:', controllerURL);
+        const response = await fetch(`${controllerURL}/v1/mode?object_id=${testObjectId}`);
+        console.log('Mode response status:', response.status);
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Mode data:', data);
+          setConsistencyMode(data);
+          setError(null);
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.error('Mode fetch error for', controllerURL, ':', err);
+        continue;
       }
-    } catch (err) {
-      console.error('Mode fetch error:', err);
-      setError('Controller not available');
-    } finally {
-      setLoading(false);
     }
+    
+    setError('Controller not available');
+    setLoading(false);
   };
 
   const setConsistencyHint = async (hint: string) => {
-    try {
-      const controllerURL = API_URL.includes('onrender.com') ? 'https://echofs-consistency-controller.onrender.com' : 'http://localhost:8082';
+    const controllerURLs = [
+      'https://echofs-consistency-controller.onrender.com',
+      'http://localhost:8082'
+    ];
+    
+    for (const controllerURL of controllerURLs) {
+      try {
+        // First try to register the object if it doesn't exist
+        await fetch(`${controllerURL}/v1/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            object_id: testObjectId,
+            name: `test-object-${testObjectId}`,
+            size: 1024
+          })
+        });
 
-      // First try to register the object if it doesn't exist
-      await fetch(`${controllerURL}/v1/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          object_id: testObjectId,
-          name: `test-object-${testObjectId}`,
-          size: 1024
-        })
-      });
+        // Then set the hint
+        const response = await fetch(`${controllerURL}/v1/hint`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ object_id: testObjectId, hint })
+        });
 
-      // Then set the hint
-      const response = await fetch(`${controllerURL}/v1/hint`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ object_id: testObjectId, hint })
-      });
-
-      if (response.ok) {
-        fetchConsistencyMode();
-        setError(null);
-      } else {
-        const errorText = await response.text();
-        setError(`Failed to set hint: ${errorText}`);
+        if (response.ok) {
+          fetchConsistencyMode();
+          setError(null);
+          return;
+        } else {
+          const errorText = await response.text();
+          setError(`Failed to set hint: ${errorText}`);
+          return;
+        }
+      } catch (err) {
+        console.error('Hint setting error for', controllerURL, ':', err);
+        continue;
       }
-    } catch (err) {
-      setError('Failed to communicate with controller');
     }
+    
+    setError('Failed to communicate with controller');
   };
 
   const getModeColor = (mode: string) => {
