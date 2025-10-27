@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"github.com/gorilla/mux"
 	"github.com/google/uuid"
 	"github.com/rs/cors"
@@ -512,15 +513,19 @@ func (s *Server) ListFiles(w http.ResponseWriter, r *http.Request) {
 	uploadsDir := "./storage/uploads"
 	
 	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
+		s.logger.Printf("Failed to create uploads directory: %v", err)
 		s.sendErrorResponse(w, "Failed to access storage", http.StatusInternalServerError)
 		return
 	}
 	
 	dirs, err := os.ReadDir(uploadsDir)
 	if err != nil {
+		s.logger.Printf("Failed to read uploads directory: %v", err)
 		s.sendErrorResponse(w, "Failed to list files", http.StatusInternalServerError)
 		return
 	}
+	
+	s.logger.Printf("Found %d directories in uploads folder", len(dirs))
 	
 	var files []map[string]interface{}
 	
@@ -528,32 +533,47 @@ func (s *Server) ListFiles(w http.ResponseWriter, r *http.Request) {
 		if dir.IsDir() {
 			fileId := dir.Name()
 			dirPath := filepath.Join(uploadsDir, fileId)
+			s.logger.Printf("Checking directory: %s", dirPath)
 			
 			dirFiles, err := os.ReadDir(dirPath)
 			if err != nil {
+				s.logger.Printf("Failed to read directory %s: %v", dirPath, err)
 				continue
 			}
 			
+			s.logger.Printf("Found %d files in directory %s", len(dirFiles), dirPath)
+			
 			for _, file := range dirFiles {
-				if !file.IsDir() && filepath.Ext(file.Name()) != ".gz" {
+				if !file.IsDir() {
+					s.logger.Printf("Found file: %s (ext: %s)", file.Name(), filepath.Ext(file.Name()))
+					
+					// Include all files, not just non-.gz files
 					fileInfo, err := file.Info()
 					if err != nil {
+						s.logger.Printf("Failed to get file info for %s: %v", file.Name(), err)
 						continue
+					}
+					
+					// Clean up filename if it's compressed
+					displayName := file.Name()
+					if strings.HasSuffix(displayName, ".gz") {
+						displayName = strings.TrimSuffix(displayName, ".gz")
 					}
 					
 					files = append(files, map[string]interface{}{
 						"file_id":   fileId,
-						"name":      file.Name(),
+						"name":      displayName,
 						"size":      fileInfo.Size(),
-						"uploaded":  fileInfo.ModTime(),
-						"type":      filepath.Ext(file.Name()),
+						"uploaded":  fileInfo.ModTime().Format(time.RFC3339),
+						"type":      filepath.Ext(displayName),
 					})
-					break
+					break // Only take the first file per directory
 				}
 			}
 		}
 	}
 	
+	s.logger.Printf("Returning %d files", len(files))
 	s.sendSuccessResponse(w, "Files listed successfully", files)
 }
 
