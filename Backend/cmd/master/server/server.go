@@ -202,11 +202,8 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 	
-	userID := r.FormValue("user_id")
-	if userID == "" {
-		s.sendErrorResponse(w, "user_id is required", http.StatusBadRequest)
-		return
-	}
+	// No authentication required for demo
+	userID := "demo-user"
 	
 	sessionID := uuid.New().String()
 	fileID := uuid.New().String()
