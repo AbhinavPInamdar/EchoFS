@@ -11,7 +11,8 @@ type FileMetadata struct {
 	ChunkSize    int       `json:"chunk_size"`
 	TotalChunks  int       `json:"total_chunks"`
 	MD5Hash      string    `json:"md5_hash"`
-	UploadedBy   string    `json:"uploaded_by"`
+	UploadedBy   string    `json:"uploaded_by"` // User ID
+	OwnerID      string    `json:"owner_id"`    // User ID for access control
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 	Status       string    `json:"status"`

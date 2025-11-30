@@ -132,7 +132,7 @@ func (ch *ConsistencyHandler) HandleUploadWithConsistency(w http.ResponseWriter,
 
 	replicator := ch.replicationMgr.SelectReplicator(objMeta)
 
-	startTime := time.Now()
+	_ = time.Now() // startTime for potential metrics
 	writeResult, err := replicator.Write(r.Context(), objMeta, fileData)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Write failed: %v", err), http.StatusInternalServerError)

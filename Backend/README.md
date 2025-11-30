@@ -1,6 +1,22 @@
 # EchoFS Backend
 
-Distributed file system with adaptive consistency.
+Distributed file system with adaptive consistency and user authentication.
+
+## 🔐 New: Authentication System
+
+EchoFS now includes a complete authentication system with user registration, login, and user-specific file access control!
+
+**Quick Start with Auth:**
+- See [QUICKSTART_AUTH.md](QUICKSTART_AUTH.md) for setup instructions
+- See [AUTH_README.md](AUTH_README.md) for complete API documentation
+- See [examples/frontend_auth_example.html](examples/frontend_auth_example.html) for frontend integration
+
+**Key Features:**
+- JWT-based authentication
+- User registration and login
+- User-specific file isolation
+- Secure password storage with bcrypt
+- PostgreSQL-backed user and file metadata
 
 ## Quick Start
 
@@ -26,15 +42,28 @@ docker-compose -f monitoring/docker-compose.yml up -d
 
 ## API Endpoints
 
-- `POST /api/v1/files/upload` - Upload file
-- `GET /api/v1/files/{id}/download` - Download file
+### Authentication (Public)
+- `POST /api/v1/auth/register` - Register new user
+- `POST /api/v1/auth/login` - Login and get JWT token
 - `GET /api/v1/health` - Health check
+
+### File Operations (Protected - Requires JWT)
+- `POST /api/v1/files/upload` - Upload file
+- `GET /api/v1/files` - List user's files
+- `GET /api/v1/files/{id}/download` - Download file
+- `DELETE /api/v1/files/{id}` - Delete file
+
+### Monitoring
 - `GET /metrics` - Prometheus metrics
 
 ## Configuration
-- `DATABASE_URL` - PostgreSQL connection string
+
+### Required for Authentication
+- `DATABASE_URL` - PostgreSQL connection string (e.g., `postgres://user:pass@localhost:5432/echofs?sslmode=disable`)
+- `JWT_SECRET` - JWT signing secret (change in production!)
+
+### Optional
 - `REDIS_ADDR` - Redis server address
-- `JWT_SECRET` - JWT signing secret
 
 ### AWS Configuration:
 - `AWS_REGION` - AWS region (default: us-east-1)

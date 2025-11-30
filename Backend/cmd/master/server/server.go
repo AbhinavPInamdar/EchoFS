@@ -20,7 +20,10 @@ import (
 	"echofs/pkg/fileops/Compressor"
 	"echofs/internal/storage"
 	"echofs/internal/metrics"
+	"echofs/internal/metadata"
+	"echofs/internal/api"
 	"echofs/pkg/aws"
+	"echofs/pkg/auth"
 	"echofs/pkg/database"
 	grpcClient "echofs/internal/grpc"
 )
@@ -41,6 +44,12 @@ type Server struct {
 	dynamoDB       *database.DynamoDBService
 	awsConfig      *aws.AWSConfig
 	workerRegistry *grpcClient.WorkerRegistry
+	postgresDB     *database.PostgresDB
+	userRepo       *database.UserRepository
+	fileRepo       *database.FileRepository
+	jwtManager     *auth.JWTManager
+	authMiddleware *auth.AuthMiddleware
+	authHandler    *api.AuthHandler
 }
 
 type InitUploadRequest struct {
@@ -126,6 +135,40 @@ func NewServer(masterNode *core.MasterNode, logger *log.Logger) *Server {
 		logger.Printf("Warning: Failed to register worker3 at %s: %v", worker3URL, err)
 	}
 
+	// Initialize PostgreSQL connection
+	databaseURL := getEnv("DATABASE_URL", "postgres://user:password@localhost:5432/echofs?sslmode=disable")
+	postgresDB, err := database.NewPostgresDB(databaseURL, 25, 30*time.Second)
+	if err != nil {
+		logger.Printf("Warning: Failed to connect to PostgreSQL: %v", err)
+	}
+
+	// Initialize repositories
+	var userRepo *database.UserRepository
+	var fileRepo *database.FileRepository
+	if postgresDB != nil {
+		userRepo = database.NewUserRepository(postgresDB)
+		fileRepo = database.NewFileRepository(postgresDB)
+
+		// Initialize database schema
+		if err := userRepo.InitSchema(ctx); err != nil {
+			logger.Printf("Warning: Failed to initialize user schema: %v", err)
+		}
+		if err := fileRepo.InitSchema(ctx); err != nil {
+			logger.Printf("Warning: Failed to initialize file schema: %v", err)
+		}
+	}
+
+	// Initialize JWT manager
+	jwtSecret := getEnv("JWT_SECRET", "your-secret-key-change-in-production")
+	jwtManager := auth.NewJWTManager(jwtSecret, 24*time.Hour)
+	authMiddleware := auth.NewAuthMiddleware(jwtManager)
+
+	// Initialize auth handler
+	var authHandler *api.AuthHandler
+	if userRepo != nil {
+		authHandler = api.NewAuthHandler(userRepo, jwtManager, logger)
+	}
+
 	s := &Server{
 		masterNode:     masterNode,
 		logger:         logger,
@@ -135,6 +178,12 @@ func NewServer(masterNode *core.MasterNode, logger *log.Logger) *Server {
 		dynamoDB:       dynamoDB,
 		awsConfig:      awsConfig,
 		workerRegistry: workerRegistry,
+		postgresDB:     postgresDB,
+		userRepo:       userRepo,
+		fileRepo:       fileRepo,
+		jwtManager:     jwtManager,
+		authMiddleware: authMiddleware,
+		authHandler:    authHandler,
 	}
 	s.setupRoutes()
 	return s
@@ -149,19 +198,35 @@ func (s *Server) setupRoutes() {
 	
 	api := s.router.PathPrefix("/api/v1").Subrouter()
 	
-	api.HandleFunc("/files/upload", s.UploadFile).Methods("POST")
-	api.HandleFunc("/files/{fileId}/download", s.DownloadFile).Methods("GET")
-	api.HandleFunc("/files", s.ListFiles).Methods("GET")
-	
-	api.HandleFunc("/files/upload/init", s.InitUpload).Methods("POST")
-	api.HandleFunc("/files/upload/chunk", s.UploadChunk).Methods("POST")
-	api.HandleFunc("/files/upload/complete", s.CompleteUpload).Methods("POST")
-	
-	api.HandleFunc("/workers/register", s.RegisterWorker).Methods("POST")
-	api.HandleFunc("/workers/{workerId}/heartbeat", s.WorkerHeartbeat).Methods("POST")
-	
+	// Public routes (no authentication required)
+	if s.authHandler != nil {
+		api.HandleFunc("/auth/register", s.authHandler.Register).Methods("POST")
+		api.HandleFunc("/auth/login", s.authHandler.Login).Methods("POST")
+	}
 	api.HandleFunc("/health", s.HealthCheck).Methods("GET")
-	api.HandleFunc("/workers/health", s.WorkersHealthCheck).Methods("GET")
+	
+	// Protected routes (authentication required)
+	protected := api.PathPrefix("").Subrouter()
+	if s.authMiddleware != nil {
+		protected.Use(s.authMiddleware.Authenticate)
+	}
+	
+	if s.authHandler != nil {
+		protected.HandleFunc("/auth/profile", s.authHandler.GetProfile).Methods("GET")
+	}
+	
+	protected.HandleFunc("/files/upload", s.UploadFile).Methods("POST")
+	protected.HandleFunc("/files/{fileId}/download", s.DownloadFile).Methods("GET")
+	protected.HandleFunc("/files", s.ListFiles).Methods("GET")
+	protected.HandleFunc("/files/{fileId}", s.DeleteFile).Methods("DELETE")
+	
+	protected.HandleFunc("/files/upload/init", s.InitUpload).Methods("POST")
+	protected.HandleFunc("/files/upload/chunk", s.UploadChunk).Methods("POST")
+	protected.HandleFunc("/files/upload/complete", s.CompleteUpload).Methods("POST")
+	
+	protected.HandleFunc("/workers/register", s.RegisterWorker).Methods("POST")
+	protected.HandleFunc("/workers/{workerId}/heartbeat", s.WorkerHeartbeat).Methods("POST")
+	protected.HandleFunc("/workers/health", s.WorkersHealthCheck).Methods("GET")
 }
 
 func (s *Server) Start(port int) error {
@@ -202,8 +267,13 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 	
-	// No authentication required for demo
-	userID := "demo-user"
+	// Get authenticated user from context
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		s.sendErrorResponse(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+	userID := claims.UserID
 	
 	sessionID := uuid.New().String()
 	fileID := uuid.New().String()
@@ -338,16 +408,26 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 	
 	s.logger.Printf("Successfully uploaded %d chunks to workers via gRPC", len(chunks))
 	
-	fileMetadata := &core.FileMetadata{
-		FileID:       fileID,
-		Size:         fileSize,
-		OriginalName: header.Filename,
-		ChunkSize:    int64(1024 * 1024), 
-		TotalChunks:  len(chunks),
-		UploadedBy:   userID,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
-		Status:       "completed",
+	// Save file metadata to database
+	if s.fileRepo != nil {
+		fileMetadata := &metadata.FileMetadata{
+			FileID:       fileID,
+			Size:         fileSize,
+			OriginalName: header.Filename,
+			ChunkSize:    1024 * 1024,
+			TotalChunks:  len(chunks),
+			OwnerID:      userID,
+			Status:       "completed",
+			CreatedAt:    time.Now(),
+			UpdatedAt:    time.Now(),
+		}
+		
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		
+		if err := s.fileRepo.CreateFile(ctx, fileMetadata); err != nil {
+			s.logger.Printf("Warning: Failed to save file metadata to database: %v", err)
+		}
 	}
 	
 	response := map[string]interface{}{
@@ -356,7 +436,7 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 		"chunks":      len(chunks),
 		"compressed":  true,
 		"file_size":   fileSize,
-		"metadata":    fileMetadata,
+		"owner_id":    userID,
 	}
 	
 	if metrics.AppMetrics != nil {
@@ -371,16 +451,26 @@ func (s *Server) InitUpload(w http.ResponseWriter, r *http.Request) {
 	s.logger.Println("InitUpload called")
 	w.Header().Set("Content-Type", "application/json")
 	
+	// Get authenticated user from context
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		s.sendErrorResponse(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+	
 	var req InitUploadRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		s.sendErrorResponse(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 	
-	if req.FileName == "" || req.FileSize <= 0 || req.UserID == "" {
+	if req.FileName == "" || req.FileSize <= 0 {
 		s.sendErrorResponse(w, "Missing required fields", http.StatusBadRequest)
 		return
 	}
+	
+	// Use authenticated user ID
+	req.UserID = claims.UserID
 	
 	sessionID := uuid.New().String()
 	
@@ -458,6 +548,31 @@ func (s *Server) DownloadFile(w http.ResponseWriter, r *http.Request) {
 	fileId := vars["fileId"]
 	s.logger.Printf("DownloadFile called for fileId: %s", fileId)
 	
+	// Get authenticated user from context
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		s.sendErrorResponse(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+	
+	// Check file ownership
+	if s.fileRepo != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		
+		isOwner, err := s.fileRepo.CheckFileOwnership(ctx, fileId, claims.UserID)
+		if err != nil {
+			s.logger.Printf("Failed to check file ownership: %v", err)
+			s.sendErrorResponse(w, "Failed to verify file access", http.StatusInternalServerError)
+			return
+		}
+		
+		if !isOwner {
+			s.sendErrorResponse(w, "Access denied: You don't own this file", http.StatusForbidden)
+			return
+		}
+	}
+	
 	storageDir := filepath.Join("./storage/uploads", fileId)
 	
 	files, err := os.ReadDir(storageDir)
@@ -507,6 +622,44 @@ func (s *Server) DownloadFile(w http.ResponseWriter, r *http.Request) {
 func (s *Server) ListFiles(w http.ResponseWriter, r *http.Request) {
 	s.logger.Println("ListFiles called")
 	
+	// Get authenticated user from context
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		s.sendErrorResponse(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+	
+	// Get files from database for this user
+	if s.fileRepo != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		
+		files, err := s.fileRepo.GetFilesByOwner(ctx, claims.UserID)
+		if err != nil {
+			s.logger.Printf("Failed to get files from database: %v", err)
+			s.sendErrorResponse(w, "Failed to list files", http.StatusInternalServerError)
+			return
+		}
+		
+		// Convert to response format
+		var fileList []map[string]interface{}
+		for _, file := range files {
+			fileList = append(fileList, map[string]interface{}{
+				"file_id":   file.FileID,
+				"name":      file.OriginalName,
+				"size":      file.Size,
+				"uploaded":  file.CreatedAt.Format(time.RFC3339),
+				"status":    file.Status,
+				"chunks":    file.TotalChunks,
+			})
+		}
+		
+		s.logger.Printf("Returning %d files for user %s", len(fileList), claims.UserID)
+		s.sendSuccessResponse(w, "Files listed successfully", fileList)
+		return
+	}
+	
+	// Fallback to filesystem-based listing (legacy)
 	uploadsDir := "./storage/uploads"
 	
 	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
@@ -522,36 +675,25 @@ func (s *Server) ListFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	s.logger.Printf("Found %d directories in uploads folder", len(dirs))
-	
 	var files []map[string]interface{}
 	
 	for _, dir := range dirs {
 		if dir.IsDir() {
 			fileId := dir.Name()
 			dirPath := filepath.Join(uploadsDir, fileId)
-			s.logger.Printf("Checking directory: %s", dirPath)
 			
 			dirFiles, err := os.ReadDir(dirPath)
 			if err != nil {
-				s.logger.Printf("Failed to read directory %s: %v", dirPath, err)
 				continue
 			}
 			
-			s.logger.Printf("Found %d files in directory %s", len(dirFiles), dirPath)
-			
 			for _, file := range dirFiles {
 				if !file.IsDir() {
-					s.logger.Printf("Found file: %s (ext: %s)", file.Name(), filepath.Ext(file.Name()))
-					
-					// Include all files, not just non-.gz files
 					fileInfo, err := file.Info()
 					if err != nil {
-						s.logger.Printf("Failed to get file info for %s: %v", file.Name(), err)
 						continue
 					}
 					
-					// Clean up filename if it's compressed
 					displayName := file.Name()
 					if strings.HasSuffix(displayName, ".gz") {
 						displayName = strings.TrimSuffix(displayName, ".gz")
@@ -564,14 +706,51 @@ func (s *Server) ListFiles(w http.ResponseWriter, r *http.Request) {
 						"uploaded":  fileInfo.ModTime().Format(time.RFC3339),
 						"type":      filepath.Ext(displayName),
 					})
-					break // Only take the first file per directory
+					break
 				}
 			}
 		}
 	}
 	
-	s.logger.Printf("Returning %d files", len(files))
+	s.logger.Printf("Returning %d files (filesystem fallback)", len(files))
 	s.sendSuccessResponse(w, "Files listed successfully", files)
+}
+
+func (s *Server) DeleteFile(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	fileId := vars["fileId"]
+	s.logger.Printf("DeleteFile called for fileId: %s", fileId)
+	
+	// Get authenticated user from context
+	claims, ok := auth.GetUserFromContext(r.Context())
+	if !ok {
+		s.sendErrorResponse(w, "User not authenticated", http.StatusUnauthorized)
+		return
+	}
+	
+	// Delete from database
+	if s.fileRepo != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		
+		if err := s.fileRepo.DeleteFile(ctx, fileId, claims.UserID); err != nil {
+			if err == database.ErrUserNotFound {
+				s.sendErrorResponse(w, "File not found or access denied", http.StatusNotFound)
+				return
+			}
+			s.logger.Printf("Failed to delete file from database: %v", err)
+			s.sendErrorResponse(w, "Failed to delete file", http.StatusInternalServerError)
+			return
+		}
+	}
+	
+	// Delete from filesystem
+	storageDir := filepath.Join("./storage/uploads", fileId)
+	if err := os.RemoveAll(storageDir); err != nil {
+		s.logger.Printf("Warning: Failed to delete file directory: %v", err)
+	}
+	
+	s.sendSuccessResponse(w, "File deleted successfully", nil)
 }
 
 func (s *Server) RegisterWorker(w http.ResponseWriter, r *http.Request) {

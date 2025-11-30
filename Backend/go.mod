@@ -11,6 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/elasticache v1.50.5
 	github.com/aws/aws-sdk-go-v2/service/rds v1.108.1
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.88.4
+	github.com/golang-jwt/jwt/v5 v5.2.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.10.9
@@ -18,6 +19,7 @@ require (
 	github.com/prometheus/client_model v0.6.2
 	github.com/rs/cors v1.11.1
 	github.com/soheilhy/cmux v0.1.5
+	golang.org/x/crypto v0.41.0
 	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.10
 )
