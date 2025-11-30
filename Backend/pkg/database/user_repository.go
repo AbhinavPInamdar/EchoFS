@@ -38,6 +38,18 @@ func (r *UserRepository) InitSchema(ctx context.Context) error {
 
 	CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 	CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+	
+	-- Add role column if it doesn't exist (for existing databases)
+	DO $$ 
+	BEGIN
+		IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+					   WHERE table_name='users' AND column_name='role') THEN
+			ALTER TABLE users ADD COLUMN role VARCHAR(50) NOT NULL DEFAULT 'user';
+		END IF;
+	END $$;
+	
+	-- Update admin user if exists
+	UPDATE users SET role = 'admin' WHERE username = 'admin';
 	`
 
 	_, err := r.db.ExecContext(ctx, query)
