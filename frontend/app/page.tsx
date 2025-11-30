@@ -18,6 +18,26 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined
 
 function App() {
   const [page, setPage] = useState('home');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    // Check if user is logged in
+    const token = localStorage.getItem('authToken');
+    const savedUser = localStorage.getItem('currentUser');
+    if (token && savedUser) {
+      setIsAuthenticated(true);
+      setUser(JSON.parse(savedUser));
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('currentUser');
+    setIsAuthenticated(false);
+    setUser(null);
+    setPage('home');
+  };
 
   return (
     <>
@@ -74,25 +94,29 @@ function App() {
             <LayoutIcon className="text-primary" size={20} />
             <h1 className="text-lg font-semibold text-primary">EchoFS</h1>
           </div>
-          <div className="flex space-x-8">
+          <div className="flex items-center space-x-8">
             <button
               onClick={() => setPage('home')}
               className={`text-sm font-medium transition-colors duration-200 ${page === 'home' ? 'text-primary' : 'text-accent hover:text-primary'}`}
             >
               Home
             </button>
-            <button
-              onClick={() => setPage('upload')}
-              className={`text-sm font-medium transition-colors duration-200 ${page === 'upload' ? 'text-primary' : 'text-accent hover:text-primary'}`}
-            >
-              Upload
-            </button>
-            <button
-              onClick={() => setPage('files')}
-              className={`text-sm font-medium transition-colors duration-200 ${page === 'files' ? 'text-primary' : 'text-accent hover:text-primary'}`}
-            >
-              Files
-            </button>
+            {isAuthenticated && (
+              <>
+                <button
+                  onClick={() => setPage('upload')}
+                  className={`text-sm font-medium transition-colors duration-200 ${page === 'upload' ? 'text-primary' : 'text-accent hover:text-primary'}`}
+                >
+                  Upload
+                </button>
+                <button
+                  onClick={() => setPage('files')}
+                  className={`text-sm font-medium transition-colors duration-200 ${page === 'files' ? 'text-primary' : 'text-accent hover:text-primary'}`}
+                >
+                  Files
+                </button>
+              </>
+            )}
             <button
               onClick={() => setPage('adaptive-consistency')}
               className={`text-sm font-medium transition-colors duration-200 ${page === 'adaptive-consistency' ? 'text-primary' : 'text-accent hover:text-primary'}`}
@@ -105,14 +129,33 @@ function App() {
             >
               Metrics
             </button>
+            {isAuthenticated ? (
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-accent">{user?.username}</span>
+                <button
+                  onClick={handleLogout}
+                  className="text-sm font-medium text-accent hover:text-primary transition-colors"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setPage('login')}
+                className="text-sm font-medium bg-primary text-white px-4 py-2 hover:bg-secondary transition-colors"
+              >
+                Login
+              </button>
+            )}
           </div>
         </nav>
       </header>
 
       <main>
         {page === 'home' && <HomePage />}
-        {page === 'upload' && <UploadDemoPage />}
-        {page === 'files' && <FilesPage />}
+        {page === 'login' && <LoginPage onLogin={(user) => { setIsAuthenticated(true); setUser(user); setPage('home'); }} />}
+        {page === 'upload' && (isAuthenticated ? <UploadDemoPage /> : <LoginPage onLogin={(user) => { setIsAuthenticated(true); setUser(user); setPage('upload'); }} />)}
+        {page === 'files' && (isAuthenticated ? <FilesPage /> : <LoginPage onLogin={(user) => { setIsAuthenticated(true); setUser(user); setPage('files'); }} />)}
         {page === 'hld' && <HighLevelDesignPage />}
         {page === 'file-manager' && <FileManagementPage />}
         {page === 'metrics' && <MetricsPage />}
@@ -121,6 +164,122 @@ function App() {
     </>
   );
 }
+
+const LoginPage = ({ onLogin }: { onLogin: (user: any) => void }) => {
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const endpoint = isLogin ? '/api/v1/auth/login' : '/api/v1/auth/register';
+      const body = isLogin 
+        ? { email, password }
+        : { username, email, password };
+
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('currentUser', JSON.stringify(data.user));
+        onLogin(data.user);
+      } else {
+        setError(data.message || 'Authentication failed');
+      }
+    } catch (err) {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center py-12 px-6">
+      <div className="max-w-md w-full bg-white border-minimal p-8">
+        <h2 className="text-2xl font-light text-primary mb-6 text-center">
+          {isLogin ? 'Login to EchoFS' : 'Create Account'}
+        </h2>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {!isLogin && (
+            <div>
+              <label className="block text-sm text-accent mb-2">Username</label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full px-3 py-2 border-minimal bg-white text-primary"
+                required
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm text-accent mb-2">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3 py-2 border-minimal bg-white text-primary"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-accent mb-2">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 border-minimal bg-white text-primary"
+              required
+              minLength={6}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-primary text-white py-3 px-4 font-medium disabled:opacity-50 hover-lift transition-all"
+          >
+            {loading ? 'Please wait...' : (isLogin ? 'Login' : 'Register')}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => {
+              setIsLogin(!isLogin);
+              setError('');
+            }}
+            className="text-sm text-accent hover:text-primary transition-colors"
+          >
+            {isLogin ? "Don't have an account? Register" : 'Already have an account? Login'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const HomePage = () => (
   <>
@@ -239,9 +398,12 @@ const FilesPage = () => {
 
   const fetchFiles = async () => {
     try {
-      console.log('API_URL:', API_URL);
-      console.log('Fetching from:', `${API_URL}/api/v1/files`);
-      const response = await fetch(`${API_URL}/api/v1/files`);
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/api/v1/files`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch files');
       }
@@ -257,7 +419,12 @@ const FilesPage = () => {
 
   const handleDownload = async (fileId: string, fileName: string) => {
     try {
-      const response = await fetch(`${API_URL}/api/v1/files/${fileId}/download`);
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${API_URL}/api/v1/files/${fileId}/download`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (!response.ok) {
         throw new Error('Download failed');
       }
@@ -359,13 +526,16 @@ const UploadDemoPage = () => {
     setError(null);
 
     try {
+      const token = localStorage.getItem('authToken');
       const formData = new FormData();
       formData.append('file', selectedFile);
-      formData.append('user_id', 'demo-user');
       formData.append('consistency', consistencyMode);
 
       const response = await fetch(`${API_URL}/api/v1/files/upload`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
         body: formData,
       });
 
