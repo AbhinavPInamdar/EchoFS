@@ -56,7 +56,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.jwtManager.GenerateToken(user.ID, user.Email, user.Username)
+	token, err := h.jwtManager.GenerateToken(user.ID, user.Email, user.Username, user.Role)
 	if err != nil {
 		h.logger.Printf("Failed to generate token: %v", err)
 		h.sendErrorResponse(w, "Failed to generate authentication token", http.StatusInternalServerError)
@@ -101,7 +101,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.jwtManager.GenerateToken(user.ID, user.Email, user.Username)
+	token, err := h.jwtManager.GenerateToken(user.ID, user.Email, user.Username, user.Role)
 	if err != nil {
 		h.logger.Printf("Failed to generate token: %v", err)
 		h.sendErrorResponse(w, "Failed to generate authentication token", http.StatusInternalServerError)

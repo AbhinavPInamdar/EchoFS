@@ -31,6 +31,7 @@ func (r *UserRepository) InitSchema(ctx context.Context) error {
 		username VARCHAR(255) UNIQUE NOT NULL,
 		email VARCHAR(255) UNIQUE NOT NULL,
 		password_hash TEXT NOT NULL,
+		role VARCHAR(50) NOT NULL DEFAULT 'user',
 		created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 	);
@@ -49,21 +50,28 @@ func (r *UserRepository) CreateUser(ctx context.Context, username, email, passwo
 		return nil, err
 	}
 
+	// Check if this is the admin user
+	role := "user"
+	if username == "admin" {
+		role = "admin"
+	}
+
 	user := &auth.User{
 		ID:           uuid.New().String(),
 		Username:     username,
 		Email:        email,
 		PasswordHash: hashedPassword,
+		Role:         role,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}
 
 	query := `
-		INSERT INTO users (id, username, email, password_hash, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO users (id, username, email, password_hash, role, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 
-	_, err = r.db.ExecContext(ctx, query, user.ID, user.Username, user.Email, user.PasswordHash, user.CreatedAt, user.UpdatedAt)
+	_, err = r.db.ExecContext(ctx, query, user.ID, user.Username, user.Email, user.PasswordHash, user.Role, user.CreatedAt, user.UpdatedAt)
 	if err != nil {
 		if err.Error() == "pq: duplicate key value violates unique constraint \"users_email_key\"" ||
 			err.Error() == "pq: duplicate key value violates unique constraint \"users_username_key\"" {
@@ -78,7 +86,7 @@ func (r *UserRepository) CreateUser(ctx context.Context, username, email, passwo
 func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*auth.User, error) {
 	user := &auth.User{}
 	query := `
-		SELECT id, username, email, password_hash, created_at, updated_at
+		SELECT id, username, email, password_hash, role, created_at, updated_at
 		FROM users
 		WHERE email = $1
 	`
@@ -88,6 +96,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*aut
 		&user.Username,
 		&user.Email,
 		&user.PasswordHash,
+		&user.Role,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -105,7 +114,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*aut
 func (r *UserRepository) GetUserByID(ctx context.Context, userID string) (*auth.User, error) {
 	user := &auth.User{}
 	query := `
-		SELECT id, username, email, password_hash, created_at, updated_at
+		SELECT id, username, email, password_hash, role, created_at, updated_at
 		FROM users
 		WHERE id = $1
 	`
@@ -115,6 +124,7 @@ func (r *UserRepository) GetUserByID(ctx context.Context, userID string) (*auth.
 		&user.Username,
 		&user.Email,
 		&user.PasswordHash,
+		&user.Role,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)

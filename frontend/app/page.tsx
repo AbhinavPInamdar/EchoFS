@@ -117,18 +117,22 @@ function App() {
                 </button>
               </>
             )}
-            <button
-              onClick={() => setPage('adaptive-consistency')}
-              className={`text-sm font-medium transition-colors duration-200 ${page === 'adaptive-consistency' ? 'text-primary' : 'text-accent hover:text-primary'}`}
-            >
-              Consistency
-            </button>
-            <button
-              onClick={() => setPage('metrics')}
-              className={`text-sm font-medium transition-colors duration-200 ${page === 'metrics' ? 'text-primary' : 'text-accent hover:text-primary'}`}
-            >
-              Metrics
-            </button>
+            {isAuthenticated && user?.role === 'admin' && (
+              <>
+                <button
+                  onClick={() => setPage('adaptive-consistency')}
+                  className={`text-sm font-medium transition-colors duration-200 ${page === 'adaptive-consistency' ? 'text-primary' : 'text-accent hover:text-primary'}`}
+                >
+                  Consistency
+                </button>
+                <button
+                  onClick={() => setPage('metrics')}
+                  className={`text-sm font-medium transition-colors duration-200 ${page === 'metrics' ? 'text-primary' : 'text-accent hover:text-primary'}`}
+                >
+                  Metrics
+                </button>
+              </>
+            )}
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-accent">{user?.username}</span>
@@ -158,8 +162,8 @@ function App() {
         {page === 'files' && (isAuthenticated ? <FilesPage /> : <LoginPage onLogin={(user) => { setIsAuthenticated(true); setUser(user); setPage('files'); }} />)}
         {page === 'hld' && <HighLevelDesignPage />}
         {page === 'file-manager' && <FileManagementPage />}
-        {page === 'metrics' && <MetricsPage />}
-        {page === 'adaptive-consistency' && <AdaptiveConsistencyPage />}
+        {page === 'metrics' && (isAuthenticated && user?.role === 'admin' ? <MetricsPage /> : <HomePage />)}
+        {page === 'adaptive-consistency' && (isAuthenticated && user?.role === 'admin' ? <AdaptiveConsistencyPage /> : <HomePage />)}
       </main>
     </>
   );
