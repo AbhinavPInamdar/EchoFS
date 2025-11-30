@@ -8,7 +8,7 @@
 
 **Live Application:** https://frontend-echofs-projects.vercel.app/
 
-## 📋 Table of Contents
+##  Table of Contents
 
 - [Overview](#overview)
 - [Key Features](#key-features)
@@ -23,7 +23,7 @@
 - [Deployment](#deployment)
 - [Future Enhancements](#future-enhancements)
 
-## 🎯 Overview
+##  Overview
 
 EchoFS is a research-driven distributed file system that intelligently balances the CAP theorem trade-offs by dynamically switching between strong consistency and eventual consistency based on real-time network conditions. Unlike traditional distributed systems that force users to choose between consistency and availability, EchoFS makes this decision automatically and continuously.
 
@@ -41,7 +41,7 @@ EchoFS introduces an **Adaptive Consistency Controller** that:
 3. Dynamically switches consistency modes without user intervention
 4. Achieves **85% latency reduction** during network stress while maintaining data integrity
 
-## ✨ Key Features
+##  Key Features
 
 ### 1. Adaptive Consistency Engine
 - **Intelligent Mode Switching**: Automatically transitions between strong (C) and available (A) consistency
@@ -67,29 +67,29 @@ EchoFS introduces an **Adaptive Consistency Controller** that:
 - **Health Checks**: Continuous worker health monitoring
 - **Audit Logging**: Complete trail of consistency decisions
 
-## 🏗️ Architecture
+##  Architecture
 
 ### System Components
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         Client Layer                             │
-│  (Next.js Frontend - React with TypeScript)                      │
+│                         Client Layer                            │
+│  (Next.js Frontend - React with TypeScript)                     │
 └────────────────────────┬────────────────────────────────────────┘
                          │ HTTPS/REST API
                          │
 ┌────────────────────────▼────────────────────────────────────────┐
-│                      Master Server (Go)                          │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │         Authentication Middleware (JWT)                   │  │
-│  └──────────────────────────────────────────────────────────┘  │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │         File Operations Handler                           │  │
-│  │  - Upload/Download/Delete                                 │  │
-│  │  - Chunking & Compression                                 │  │
-│  │  - User-specific access control                           │  │
-│  └──────────────────────────────────────────────────────────┘  │
-└────────────┬────────────────────────┬──────────────────────────┘
+│                      Master Server (Go)                         │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │         Authentication Middleware (JWT)                  │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │         File Operations Handler                          │   │
+│  │  - Upload/Download/Delete                                │   │
+│  │  - Chunking & Compression                                │   │
+│  │  - User-specific access control                          │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└────────────┬────────────────────────┬───────────────────────────┘
              │                        │
              │ gRPC                   │ HTTP
              │                        │
@@ -147,7 +147,7 @@ EchoFS introduces an **Adaptive Consistency Controller** that:
 6. Mode transition with state persistence
 ```
 
-## 🎛️ Adaptive Consistency Controller
+##  Adaptive Consistency Controller
 
 ### Why We Built It
 
@@ -274,7 +274,7 @@ GET  /health                     # Health check
 GET  /status                     # Controller status
 ```
 
-## 🔧 Design Decisions
+##  Design Decisions
 
 ### 1. Master-Worker Architecture
 
@@ -394,7 +394,7 @@ GET  /status                     # Controller status
 
 **Trade-off:** Must decompress entire file for access (acceptable for our use case)
 
-## 💻 Technology Stack
+##  Technology Stack
 
 ### Backend
 - **Language**: Go 1.24
@@ -419,7 +419,7 @@ GET  /status                     # Controller status
 - **Storage**: AWS S3
 - **Monitoring**: Prometheus + Grafana (Docker)
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 - Go 1.24+
@@ -491,7 +491,7 @@ curl -X POST http://localhost:8080/api/v1/auth/register \
   -d '{"username":"test","email":"test@example.com","password":"test123"}'
 ```
 
-## 📚 API Documentation
+##  API Documentation
 
 ### Authentication
 
@@ -618,7 +618,7 @@ Content-Type: application/json
 }
 ```
 
-## 📊 Performance Results
+##  Performance Results
 
 ### Experimental Validation
 
@@ -634,7 +634,7 @@ We conducted extensive experiments comparing EchoFS's adaptive consistency again
 
 | Metric | Fixed Strong | Adaptive | Improvement |
 |--------|-------------|----------|-------------|
-| P50 Latency (Normal) | 8ms | 8ms | 0% |
+| P50 Latency (Normal) | 8ms | 8ms | 0%          |
 | P95 Latency (Normal) | 45ms | 45ms | 0% |
 | P50 Latency (Partition) | 95ms | 15ms | **84%** |
 | P95 Latency (Partition) | 380ms | 48ms | **87%** |
@@ -658,7 +658,7 @@ We conducted extensive experiments comparing EchoFS's adaptive consistency again
 - System uptime: 99.8%
 - Zero data corruption incidents
 
-## 🔒 Security
+##  Security
 
 ### Authentication & Authorization
 - JWT tokens with HMAC-SHA256 signing
@@ -678,7 +678,7 @@ We conducted extensive experiments comparing EchoFS's adaptive consistency again
 - Regular security audits
 - Dependency vulnerability scanning
 
-## 🌐 Deployment
+##  Deployment
 
 ### Production URLs
 - **Frontend**: https://frontend-echofs-projects.vercel.app/
@@ -726,7 +726,7 @@ PORT=10000
 NEXT_PUBLIC_API_URL=https://echofs.onrender.com
 ```
 
-## 🔮 Future Enhancements
+##  Future Enhancements
 
 ### Short Term
 - [ ] Token refresh mechanism
@@ -749,7 +749,7 @@ NEXT_PUBLIC_API_URL=https://echofs.onrender.com
 - [ ] Blockchain-based audit trail
 - [ ] Mobile applications
 
-## 📖 Research & Publications
+##  Research & Publications
 
 This project demonstrates practical implementation of distributed systems concepts:
 
@@ -763,26 +763,18 @@ This project demonstrates practical implementation of distributed systems concep
 - Practical validation of adaptive consistency benefits
 - Open-source implementation for research and education
 
-## 👥 Contributing
 
-Contributions are welcome! Areas of interest:
-- Performance optimizations
-- Additional consistency modes
-- Enhanced monitoring
-- Security improvements
-- Documentation
-
-## 📄 License
+##  License
 
 MIT License - See LICENSE file for details
 
-## 🙏 Acknowledgments
+##  Acknowledgments
 
 - Inspired by Amazon DynamoDB's eventual consistency model
 - Built on research from Google Spanner and Apache Cassandra
 - Uses industry-standard protocols (gRPC, JWT, OAuth)
 
-## 📞 Contact
+##  Contact
 
 - **Project Link**: https://github.com/AbhinavPInamdar/EchoFS
 - **Live Demo**: https://frontend-echofs-projects.vercel.app/
