@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestrator
+  namespace: echofs
+  labels:
+    app: orchestrator
+    app.kubernetes.io/component: orchestrator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orchestrator
+  template:
+    metadata:
+      labels:
+        app: orchestrator
+    spec:
+      containers:
+        - name: orchestrator
+          image: ghcr.io/OWNER/echofs-orchestrator:latest
+          ports:
+            - containerPort: 8082
+              name: http
+          env:
+            - name: PORT
+              value: "8082"
+            - name: METRICS_ADDR
+              value: "prometheus:9090"
+            - name: CONTROLLER_STATE_PATH
+              value: "/data/controller_state.json"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          volumeMounts:
+            - name: state-storage
+              mountPath: /data
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: state-storage
+          persistentVolumeClaim:
+            claimName: orchestrator-state
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestrator
+  namespace: echofs
+spec:
+  selector:
+    app: orchestrator
+  ports:
+    - port: 8082
+      targetPort: http
+      name: http
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: orchestrator-state
+  namespace: echofs
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi

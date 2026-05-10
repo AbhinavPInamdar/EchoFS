@@ -1,0 +1,32 @@
+# Build stage
+FROM golang:1.24-alpine AS builder
+
+RUN apk add --no-cache git ca-certificates
+
+WORKDIR /app
+
+# Cache dependencies
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source
+COPY . .
+
+# Build the consistency controller
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /orchestrator ./cmd/consistency-controller/
+
+# Runtime stage
+FROM alpine:3.20
+
+RUN apk add --no-cache ca-certificates tzdata
+
+WORKDIR /app
+
+COPY --from=builder /orchestrator .
+
+# Create data directory for state persistence
+RUN mkdir -p /data
+
+EXPOSE 8082
+
+ENTRYPOINT ["/app/orchestrator"]

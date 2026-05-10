@@ -48,8 +48,6 @@ func (r *UserRepository) InitSchema(ctx context.Context) error {
 		END IF;
 	END $$;
 	
-	-- Update admin user if exists
-	UPDATE users SET role = 'admin' WHERE username = 'admin';
 	`
 
 	_, err := r.db.ExecContext(ctx, query)
@@ -62,11 +60,8 @@ func (r *UserRepository) CreateUser(ctx context.Context, username, email, passwo
 		return nil, err
 	}
 
-	// Check if this is the admin user
+	// All users start as regular users. Admin role must be granted separately.
 	role := "user"
-	if username == "admin" {
-		role = "admin"
-	}
 
 	user := &auth.User{
 		ID:           uuid.New().String(),
@@ -165,4 +160,22 @@ func (r *UserRepository) AuthenticateUser(ctx context.Context, email, password s
 	}
 
 	return user, nil
+}
+
+// PromoteToAdmin explicitly grants admin role to a user.
+// This should be called from a CLI tool or seed script, never from a public API.
+func (r *UserRepository) PromoteToAdmin(ctx context.Context, userID string) error {
+	query := `UPDATE users SET role = 'admin', updated_at = $1 WHERE id = $2`
+	result, err := r.db.ExecContext(ctx, query, time.Now(), userID)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return ErrUserNotFound
+	}
+	return nil
 }

@@ -161,7 +161,6 @@ function App() {
         {page === 'upload' && (isAuthenticated ? <UploadDemoPage /> : <LoginPage onLogin={(user) => { setIsAuthenticated(true); setUser(user); setPage('upload'); }} />)}
         {page === 'files' && (isAuthenticated ? <FilesPage /> : <LoginPage onLogin={(user) => { setIsAuthenticated(true); setUser(user); setPage('files'); }} />)}
         {page === 'hld' && <HighLevelDesignPage />}
-        {page === 'file-manager' && <FileManagementPage />}
         {page === 'metrics' && (isAuthenticated && user?.role === 'admin' ? <MetricsPage /> : <HomePage />)}
         {page === 'adaptive-consistency' && (isAuthenticated && user?.role === 'admin' ? <AdaptiveConsistencyPage /> : <HomePage />)}
       </main>

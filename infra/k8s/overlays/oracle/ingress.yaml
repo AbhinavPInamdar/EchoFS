@@ -1,0 +1,40 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: echofs-ingress
+  namespace: echofs
+  annotations:
+    # Caddy ingress controller handles TLS automatically
+    kubernetes.io/ingress.class: caddy
+spec:
+  rules:
+    - host: api.echofs.duckdns.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: master
+                port:
+                  number: 8080
+    - host: echofs.duckdns.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 3000
+    - host: grafana.echofs.duckdns.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000

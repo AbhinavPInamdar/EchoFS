@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: storage-node
+  namespace: echofs
+  labels:
+    app: storage-node
+    app.kubernetes.io/component: storage
+spec:
+  serviceName: storage-node
+  replicas: 3
+  selector:
+    matchLabels:
+      app: storage-node
+  template:
+    metadata:
+      labels:
+        app: storage-node
+    spec:
+      containers:
+        - name: storage-node
+          image: ghcr.io/OWNER/echofs-worker:latest
+          ports:
+            - containerPort: 10081
+              name: grpc
+          env:
+            - name: WORKER_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: PORT
+              value: "10081"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: chunk-storage
+              mountPath: /data/chunks
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 10081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 10081
+            initialDelaySeconds: 3
+            periodSeconds: 5
+  volumeClaimTemplates:
+    - metadata:
+        name: chunk-storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: storage-node
+  namespace: echofs
+spec:
+  clusterIP: None  # Headless service for StatefulSet
+  selector:
+    app: storage-node
+  ports:
+    - port: 10081
+      targetPort: grpc
+      name: grpc

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -18,6 +20,7 @@ type Controller struct {
 	metricsClient     metrics.PrometheusClient
 	store             *Store
 	policy            *Policy
+	fileStore         *FileStore
 	mu                sync.RWMutex
 	objectModes       map[string]*ObjectModeState
 	confirmationCount int
@@ -64,17 +67,44 @@ type HintRequest struct {
 }
 
 func New(config Config) *Controller {
-	return &Controller{
+	statePath := "./data/controller_state.json"
+	if p := os.Getenv("CONTROLLER_STATE_PATH"); p != "" {
+		statePath = p
+	}
+
+	// Ensure data directory exists
+	if dir := filepath.Dir(statePath); dir != "" {
+		os.MkdirAll(dir, 0755)
+	}
+
+	fileStore := NewFileStore(statePath)
+
+	c := &Controller{
 		config:            config,
 		metricsClient:     config.MetricsClient,
 		store:             NewStore(),
 		policy:            NewPolicy(),
+		fileStore:         fileStore,
 		objectModes:       make(map[string]*ObjectModeState),
 		confirmationCount: config.ConfirmationCount,
 		sampleWindow:      config.SampleWindow,
 		criticalKeys:      make(map[string]bool),
 		modeChangeReasons: make(map[string]string),
 	}
+
+	// Restore persisted state
+	if state, err := fileStore.Load(); err != nil {
+		log.Printf("Warning: Failed to load persisted state: %v", err)
+	} else if state != nil {
+		c.objectModes = state.ObjectModes
+		c.globalOverride = state.GlobalOverride
+		c.criticalKeys = state.CriticalKeys
+		c.emergencyMode = state.EmergencyMode
+		log.Printf("Restored controller state (version %d, %d objects, %d critical keys)",
+			state.Version, len(state.ObjectModes), len(state.CriticalKeys))
+	}
+
+	return c
 }
 
 func (c *Controller) Start(ctx context.Context) {
@@ -163,17 +193,54 @@ func (c *Controller) transitionMode(obj *metadata.ObjectMeta, state *ObjectModeS
 }
 
 func (c *Controller) gatherObjectMetrics(ctx context.Context, objectID string) (ObjectMetrics, error) {
+	om := ObjectMetrics{
+		NodeRTT: make(map[string]time.Duration),
+	}
 
-	return ObjectMetrics{
-		PartitionRisk:     0.1,
-		ReplicationLag:    50 * time.Millisecond,
-		WriteRate:         10.0,
-		NodeRTT:          map[string]time.Duration{
-			"worker1": 5 * time.Millisecond,
-			"worker2": 15 * time.Millisecond,
-		},
-		TransitionReason: "low_latency",
-	}, nil
+	// Query real metrics from Prometheus
+	realClient, isReal := c.metricsClient.(*metrics.RealPrometheusClient)
+	if !isReal {
+		// Fallback: use safe defaults when no real Prometheus is available
+		om.PartitionRisk = 0.1
+		om.ReplicationLag = 50 * time.Millisecond
+		om.WriteRate = 10.0
+		om.TransitionReason = "no_metrics_source"
+		return om, nil
+	}
+
+	// 1. Partition risk: ratio of unhealthy workers
+	unhealthyCount, err := realClient.QueryScalar(`count(echofs_worker_health_status == 0) or vector(0)`)
+	if err == nil {
+		totalCount, err2 := realClient.QueryScalar(`count(echofs_worker_health_status) or vector(3)`)
+		if err2 == nil && totalCount > 0 {
+			om.PartitionRisk = unhealthyCount / totalCount
+		}
+	}
+
+	// 2. Replication lag: max lag across all nodes
+	lagSeconds, err := realClient.QueryScalar(`max(echofs_replication_latency_seconds) or vector(0.05)`)
+	if err == nil {
+		om.ReplicationLag = time.Duration(lagSeconds * float64(time.Second))
+	} else {
+		om.ReplicationLag = 50 * time.Millisecond
+	}
+
+	// 3. Write rate: uploads per second over last 5 minutes
+	writeRate, err := realClient.QueryScalar(`rate(echofs_file_uploads_total[5m]) or vector(0)`)
+	if err == nil {
+		om.WriteRate = writeRate
+	}
+
+	// 4. Node RTT: gRPC request duration per worker
+	avgRTT, err := realClient.QueryScalar(`avg(echofs_grpc_request_duration_seconds) or vector(0.005)`)
+	if err == nil {
+		rttDuration := time.Duration(avgRTT * float64(time.Second))
+		om.NodeRTT["worker1"] = rttDuration
+		om.NodeRTT["worker2"] = rttDuration
+		om.NodeRTT["worker3"] = rttDuration
+	}
+
+	return om, nil
 }
 
 func (c *Controller) emitModeChangeMetric(objectID, fromMode, toMode, reason string) {
@@ -518,7 +585,17 @@ func (c *Controller) RemoveCriticalKey(objectID string) error {
 }
 
 func (c *Controller) persistState() error {
+	state := &PersistentState{
+		ObjectModes:    c.objectModes,
+		GlobalOverride: c.globalOverride,
+		CriticalKeys:   c.criticalKeys,
+		EmergencyMode:  c.emergencyMode,
+	}
 
+	if err := c.fileStore.Save(state); err != nil {
+		log.Printf("Error persisting controller state: %v", err)
+		return err
+	}
 	return nil
 }
 

@@ -1,0 +1,59 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  - ingress.yaml
+
+# In production, secrets are managed via sealed-secrets or external-secrets
+# For now, create them manually:
+#   kubectl create secret generic echofs-secrets -n echofs \
+#     --from-literal=jwt-secret=$(openssl rand -hex 32) \
+#     --from-literal=database-url='postgres://echofs:PASS@postgres:5432/echofs?sslmode=disable' \
+#     --from-literal=postgres-user=echofs \
+#     --from-literal=postgres-password=CHANGE_ME
+
+patches:
+  # Full resource allocation for Oracle free tier
+  - target:
+      kind: Deployment
+      name: master
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 200m
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 256Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "1"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 1Gi
+
+  # 3 storage node replicas
+  - target:
+      kind: StatefulSet
+      name: storage-node
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 3
+
+  # Larger PVCs for Oracle (200GB free)
+  - target:
+      kind: StatefulSet
+      name: storage-node
+    patch: |
+      - op: replace
+        path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        value: 50Gi
+
+  - target:
+      kind: StatefulSet
+      name: postgres
+    patch: |
+      - op: replace
+        path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        value: 10Gi

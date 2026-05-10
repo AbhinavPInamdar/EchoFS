@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: echofs
+  labels:
+    app: gateway
+    app.kubernetes.io/component: gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gateway
+  template:
+    metadata:
+      labels:
+        app: gateway
+    spec:
+      containers:
+        - name: gateway
+          image: ghcr.io/OWNER/echofs-gateway:latest
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: echofs-secrets
+                  key: jwt-secret
+            - name: INGEST_URL
+              value: "http://ingest:8081"
+            - name: METADATA_URL
+              value: "http://metadata:8083"
+            - name: FRONTEND_URL
+              value: "https://echofs.duckdns.org"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+  namespace: echofs
+spec:
+  selector:
+    app: gateway
+  ports:
+    - port: 8080
+      targetPort: http
+      name: http

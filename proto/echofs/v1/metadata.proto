@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+package echofs.v1;
+
+option go_package = "echofs/proto/gen/v1";
+
+import "google/protobuf/timestamp.proto";
+
+// Metadata service — file and chunk metadata management.
+service MetadataService {
+    // File operations
+    rpc CreateFile(CreateFileRequest) returns (CreateFileResponse);
+    rpc GetFile(GetFileRequest) returns (GetFileResponse);
+    rpc ListFiles(ListFilesRequest) returns (ListFilesResponse);
+    rpc DeleteFile(DeleteFileRequest) returns (DeleteFileResponse);
+
+    // Chunk mapping
+    rpc RecordChunkPlacement(RecordChunkPlacementRequest) returns (RecordChunkPlacementResponse);
+    rpc GetChunkMap(GetChunkMapRequest) returns (GetChunkMapResponse);
+}
+
+message FileMetadata {
+    string file_id = 1;
+    string owner_id = 2;
+    string original_name = 3;
+    int64 size = 4;
+    int32 chunk_size = 5;
+    int32 total_chunks = 6;
+    string md5_hash = 7;
+    string status = 8;
+    string consistency_mode = 9;
+    google.protobuf.Timestamp created_at = 10;
+    google.protobuf.Timestamp updated_at = 11;
+}
+
+message ChunkPlacement {
+    string chunk_id = 1;
+    int32 chunk_index = 2;
+    string primary_worker = 3;
+    repeated string replica_workers = 4;
+    string md5_hash = 5;
+    int64 version = 6;
+}
+
+message CreateFileRequest {
+    FileMetadata metadata = 1;
+    repeated ChunkPlacement chunks = 2;
+}
+
+message CreateFileResponse {
+    bool success = 1;
+    string file_id = 2;
+}
+
+message GetFileRequest {
+    string file_id = 1;
+}
+
+message GetFileResponse {
+    FileMetadata metadata = 1;
+    repeated ChunkPlacement chunks = 2;
+}
+
+message ListFilesRequest {
+    string owner_id = 1;
+    int32 page_size = 2;
+    string page_token = 3;
+}
+
+message ListFilesResponse {
+    repeated FileMetadata files = 1;
+    string next_page_token = 2;
+    int32 total_count = 3;
+}
+
+message DeleteFileRequest {
+    string file_id = 1;
+    string owner_id = 2;
+}
+
+message DeleteFileResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message RecordChunkPlacementRequest {
+    string file_id = 1;
+    repeated ChunkPlacement chunks = 2;
+}
+
+message RecordChunkPlacementResponse {
+    bool success = 1;
+}
+
+message GetChunkMapRequest {
+    string file_id = 1;
+}
+
+message GetChunkMapResponse {
+    repeated ChunkPlacement chunks = 1;
+}

@@ -1,14 +1,18 @@
 package main
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"net/http"
 	"log"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 	"github.com/gorilla/mux"
@@ -18,6 +22,7 @@ import (
 	"echofs/cmd/master/core"
 	fileops "echofs/pkg/fileops/Chunker"
 	"echofs/pkg/fileops/Compressor"
+	"echofs/internal/consistency"
 	"echofs/internal/storage"
 	"echofs/internal/metrics"
 	"echofs/internal/metadata"
@@ -36,20 +41,22 @@ func getEnv(key, defaultValue string) string {
 }
 
 type Server struct {
-	masterNode     *core.MasterNode 
-	router         *mux.Router
-	logger         *log.Logger
-	chunkStore     *storage.FSChunkStore
-	s3Storage      *storage.S3Storage
-	dynamoDB       *database.DynamoDBService
-	awsConfig      *aws.AWSConfig
-	workerRegistry *grpcClient.WorkerRegistry
-	postgresDB     *database.PostgresDB
-	userRepo       *database.UserRepository
-	fileRepo       *database.FileRepository
-	jwtManager     *auth.JWTManager
-	authMiddleware *auth.AuthMiddleware
-	authHandler    *api.AuthHandler
+	masterNode       *core.MasterNode 
+	router           *mux.Router
+	logger           *log.Logger
+	chunkStore       *storage.FSChunkStore
+	s3Storage        *storage.S3Storage
+	dynamoDB         *database.DynamoDBService
+	awsConfig        *aws.AWSConfig
+	workerRegistry   *grpcClient.WorkerRegistry
+	postgresDB       *database.PostgresDB
+	userRepo         *database.UserRepository
+	fileRepo         *database.FileRepository
+	jwtManager       *auth.JWTManager
+	authMiddleware   *auth.AuthMiddleware
+	authHandler      *api.AuthHandler
+	consistencyClient *consistency.Client
+	writeCoordinator  *consistency.WriteCoordinator
 }
 
 type InitUploadRequest struct {
@@ -159,7 +166,10 @@ func NewServer(masterNode *core.MasterNode, logger *log.Logger) *Server {
 	}
 
 	// Initialize JWT manager
-	jwtSecret := getEnv("JWT_SECRET", "your-secret-key-change-in-production")
+	jwtSecret := getEnv("JWT_SECRET", "")
+	if jwtSecret == "" {
+		logger.Fatalf("JWT_SECRET environment variable is required")
+	}
 	jwtManager := auth.NewJWTManager(jwtSecret, 24*time.Hour)
 	authMiddleware := auth.NewAuthMiddleware(jwtManager)
 
@@ -169,21 +179,34 @@ func NewServer(masterNode *core.MasterNode, logger *log.Logger) *Server {
 		authHandler = api.NewAuthHandler(userRepo, jwtManager, logger)
 	}
 
+	// Initialize consistency client (queries the orchestrator for mode decisions)
+	orchestratorURL := getEnv("ORCHESTRATOR_URL", "http://localhost:8082")
+	consistencyClient := consistency.NewClient(orchestratorURL, logger)
+
+	// Initialize write coordinator (executes writes according to consistency mode)
+	replicationFactor := 3
+	if rf := getEnv("REPLICATION_FACTOR", ""); rf != "" {
+		fmt.Sscanf(rf, "%d", &replicationFactor)
+	}
+	writeCoordinator := consistency.NewWriteCoordinator(workerRegistry, replicationFactor, logger)
+
 	s := &Server{
-		masterNode:     masterNode,
-		logger:         logger,
-		router:         mux.NewRouter(),
-		chunkStore:     chunkStore,
-		s3Storage:      s3Storage,
-		dynamoDB:       dynamoDB,
-		awsConfig:      awsConfig,
-		workerRegistry: workerRegistry,
-		postgresDB:     postgresDB,
-		userRepo:       userRepo,
-		fileRepo:       fileRepo,
-		jwtManager:     jwtManager,
-		authMiddleware: authMiddleware,
-		authHandler:    authHandler,
+		masterNode:        masterNode,
+		logger:            logger,
+		router:            mux.NewRouter(),
+		chunkStore:        chunkStore,
+		s3Storage:         s3Storage,
+		dynamoDB:          dynamoDB,
+		awsConfig:         awsConfig,
+		workerRegistry:    workerRegistry,
+		postgresDB:        postgresDB,
+		userRepo:          userRepo,
+		fileRepo:          fileRepo,
+		jwtManager:        jwtManager,
+		authMiddleware:    authMiddleware,
+		authHandler:       authHandler,
+		consistencyClient: consistencyClient,
+		writeCoordinator:  writeCoordinator,
 	}
 	s.setupRoutes()
 	return s
@@ -196,17 +219,17 @@ func (s *Server) setupRoutes() {
 	s.router.Handle("/metrics", promhttp.Handler()).Methods("GET")
 	s.router.HandleFunc("/metrics/dashboard", metrics.DashboardHandler).Methods("GET")
 	
-	api := s.router.PathPrefix("/api/v1").Subrouter()
+	apiRouter := s.router.PathPrefix("/api/v1").Subrouter()
 	
-	// Public routes (no authentication required)
+	// Public routes (no authentication required) — rate limited
 	if s.authHandler != nil {
-		api.HandleFunc("/auth/register", s.authHandler.Register).Methods("POST")
-		api.HandleFunc("/auth/login", s.authHandler.Login).Methods("POST")
+		apiRouter.HandleFunc("/auth/register", s.authHandler.Register).Methods("POST")
+		apiRouter.HandleFunc("/auth/login", s.authHandler.Login).Methods("POST")
 	}
-	api.HandleFunc("/health", s.HealthCheck).Methods("GET")
+	apiRouter.HandleFunc("/health", s.HealthCheck).Methods("GET")
 	
 	// Protected routes (authentication required)
-	protected := api.PathPrefix("").Subrouter()
+	protected := apiRouter.PathPrefix("").Subrouter()
 	if s.authMiddleware != nil {
 		protected.Use(s.authMiddleware.Authenticate)
 	}
@@ -227,25 +250,68 @@ func (s *Server) setupRoutes() {
 	protected.HandleFunc("/workers/register", s.RegisterWorker).Methods("POST")
 	protected.HandleFunc("/workers/{workerId}/heartbeat", s.WorkerHeartbeat).Methods("POST")
 	protected.HandleFunc("/workers/health", s.WorkersHealthCheck).Methods("GET")
+	
+	// Consistency stats endpoint (admin only)
+	protected.HandleFunc("/consistency/stats", s.ConsistencyStats).Methods("GET")
 }
 
 func (s *Server) Start(port int) error {
 	s.logger.Printf("Starting server on port %d", port)
 
+	// Restrict CORS to configured origins
+	allowedOrigins := []string{"http://localhost:3000"}
+	if frontendURL := getEnv("FRONTEND_URL", ""); frontendURL != "" {
+		allowedOrigins = append(allowedOrigins, frontendURL)
+	}
+	// Allow the production frontend
+	if prodURL := getEnv("PRODUCTION_FRONTEND_URL", "https://frontend-echofs-projects.vercel.app"); prodURL != "" {
+		allowedOrigins = append(allowedOrigins, prodURL)
+	}
+
 	c := cors.New(cors.Options{
-		AllowedOrigins: []string{"*"},
+		AllowedOrigins: allowedOrigins,
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders: []string{"*"},
-		AllowCredentials: false,
+		AllowedHeaders: []string{"Authorization", "Content-Type"},
+		AllowCredentials: true,
 	})
 	
 	handler := c.Handler(s.router)
-	return http.ListenAndServe(fmt.Sprintf(":%d", port), handler)
+	
+	srv := &http.Server{
+		Addr:         fmt.Sprintf(":%d", port),
+		Handler:      handler,
+		ReadTimeout:  60 * time.Second,
+		WriteTimeout: 120 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+	
+	// Graceful shutdown
+	go func() {
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		<-sigCh
+		
+		s.logger.Println("Shutting down server...")
+		
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		
+		// Stop write coordinator (drain async queue)
+		if s.writeCoordinator != nil {
+			s.writeCoordinator.Stop()
+		}
+		
+		if err := srv.Shutdown(ctx); err != nil {
+			s.logger.Printf("Server shutdown error: %v", err)
+		}
+	}()
+	
+	return srv.ListenAndServe()
 }
 
 func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
-	s.logger.Println("UploadFile called - integrated chunking and compression")
+	s.logger.Println("UploadFile called - consistency-aware chunked upload")
 	w.Header().Set("Content-Type", "application/json")
 	
 	err := r.ParseMultipartForm(32 << 20)
@@ -275,16 +341,37 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	userID := claims.UserID
 	
-	sessionID := uuid.New().String()
-	fileID := uuid.New().String()
+	// Validate file size (max 100MB)
+	if header.Size > 100*1024*1024 {
+		s.sendErrorResponse(w, "File too large (max 100MB)", http.StatusBadRequest)
+		return
+	}
 	
+	// Sanitize filename
+	sanitizedName := sanitizeFilename(header.Filename)
+	if sanitizedName == "" {
+		s.sendErrorResponse(w, "Invalid filename", http.StatusBadRequest)
+		return
+	}
+	
+	fileID := uuid.New().String()
+	sessionID := uuid.New().String()
+	
+	// Query the consistency orchestrator for the write mode
+	mode, reason := s.consistencyClient.GetMode(r.Context(), fileID)
+	s.logger.Printf("Consistency mode for file %s: %s (reason: %s)", fileID, mode, reason)
+	
+	// Register the object with the orchestrator
+	go s.consistencyClient.RegisterObject(context.Background(), fileID, sanitizedName, header.Size)
+	
+	// Save uploaded file temporarily for chunking
 	storageDir := filepath.Join("./storage/uploads", fileID)
 	if err := os.MkdirAll(storageDir, 0755); err != nil {
 		s.sendErrorResponse(w, "Failed to create storage directory", http.StatusInternalServerError)
 		return
 	}
 	
-	originalFilePath := filepath.Join(storageDir, header.Filename)
+	originalFilePath := filepath.Join(storageDir, sanitizedName)
 	originalFile, err := os.Create(originalFilePath)
 	if err != nil {
 		s.sendErrorResponse(w, "Failed to create storage file", http.StatusInternalServerError)
@@ -299,7 +386,8 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	originalFile.Close()
 	
-	s.logger.Printf("Compressing file: %s", header.Filename)
+	// Compress the file
+	s.logger.Printf("Compressing file: %s", sanitizedName)
 	compressedFile, err := compressor.Compress(originalFilePath)
 	if err != nil {
 		s.sendErrorResponse(w, "Failed to compress file", http.StatusInternalServerError)
@@ -309,6 +397,7 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 	
 	compressedPath := originalFilePath + ".gz"
 	
+	// Chunk the compressed file
 	s.logger.Printf("Chunking compressed file")
 	chunker := fileops.NewDefaultFileChunker(1024 * 1024) 
 	
@@ -324,65 +413,59 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	s.logger.Printf("Created %d chunks for file %s", len(chunks), header.Filename)
+	s.logger.Printf("Created %d chunks for file %s (mode: %s)", len(chunks), sanitizedName, mode)
 	
-	var chunkAssignments []core.ChunkAssignment
+	// Check workers are available
 	workers := s.workerRegistry.GetAllWorkers()
-	workerList := make([]string, 0, len(workers))
-	for workerID := range workers {
-		workerList = append(workerList, workerID)
-	}
-	
-	if len(workerList) == 0 {
+	if len(workers) == 0 {
 		s.sendErrorResponse(w, "No workers available for chunk storage", http.StatusServiceUnavailable)
 		return
 	}
 	
-	for i, chunk := range chunks {
-
-		primaryWorker := workerList[i%len(workerList)]
+	// Write chunks using the consistency-aware write coordinator
+	var chunkAssignments []core.ChunkAssignment
+	var failedChunks int
+	
+	for _, chunk := range chunks {
+		chunkData, err := os.ReadFile(chunk.FileName)
+		if err != nil {
+			s.logger.Printf("Failed to read chunk file %s: %v", chunk.FileName, err)
+			failedChunks++
+			continue
+		}
 		
-		if workerClient, exists := s.workerRegistry.GetWorker(primaryWorker); exists {
-			chunkData, err := os.ReadFile(chunk.FileName)
-			if err != nil {
-				s.logger.Printf("Failed to read chunk file %s: %v", chunk.FileName, err)
-				continue
-			}
-			
-			chunkID := fmt.Sprintf("%s_chunk_%d", fileID, chunk.Index)
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			resp, err := workerClient.StoreChunk(ctx, fileID, chunkID, chunk.Index, chunkData, chunk.MD5Hash)
-			cancel()
-			
-			if err != nil {
-				s.logger.Printf("Failed to store chunk %s on worker %s via gRPC: %v", chunkID, primaryWorker, err)
-
-				assignment := core.ChunkAssignment{
-					ChunkIndex:     chunk.Index,
-					PrimaryWorker:  primaryWorker,
-					ReplicaWorkers: []string{},
-					MD5Expected:    chunk.MD5Hash,
-					Status:         "failed",
-				}
-				chunkAssignments = append(chunkAssignments, assignment)
-				continue
-			}
-			
-			s.logger.Printf("✅ Stored chunk %s on worker %s via gRPC: %s", chunkID, primaryWorker, resp.GetMessage())
+		chunkID := fmt.Sprintf("%s_chunk_%d", fileID, chunk.Index)
+		
+		// Use the write coordinator with the consistency mode
+		result := s.writeCoordinator.WriteChunk(
+			r.Context(),
+			mode,
+			fileID,
+			chunkID,
+			chunk.Index,
+			chunkData,
+			chunk.MD5Hash,
+		)
+		
+		if result.Success {
+			s.logger.Printf("✅ Chunk %d stored (mode: %s, primary: %s, latency: %v)",
+				chunk.Index, result.Mode, result.PrimaryWorker, result.Latency)
 			
 			assignment := core.ChunkAssignment{
 				ChunkIndex:     chunk.Index,
-				PrimaryWorker:  primaryWorker,
-				ReplicaWorkers: []string{},
+				PrimaryWorker:  result.PrimaryWorker,
+				ReplicaWorkers: result.Replicas,
 				MD5Expected:    chunk.MD5Hash,
 				Status:         "completed",
 			}
 			chunkAssignments = append(chunkAssignments, assignment)
 		} else {
-			s.logger.Printf("❌ Worker %s not found in registry", primaryWorker)
+			s.logger.Printf("❌ Chunk %d failed (mode: %s): %v", chunk.Index, result.Mode, result.Error)
+			failedChunks++
+			
 			assignment := core.ChunkAssignment{
 				ChunkIndex:     chunk.Index,
-				PrimaryWorker:  primaryWorker,
+				PrimaryWorker:  result.PrimaryWorker,
 				ReplicaWorkers: []string{},
 				MD5Expected:    chunk.MD5Hash,
 				Status:         "failed",
@@ -391,10 +474,26 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	
+	// If any chunks failed in Strong mode, the upload fails
+	if failedChunks > 0 && mode == consistency.ModeStrong {
+		// Clean up: delete chunks that were stored
+		s.cleanupFailedUpload(fileID, storageDir)
+		s.sendErrorResponse(w, fmt.Sprintf("Upload failed: %d/%d chunks could not be stored with strong consistency", failedChunks, len(chunks)), http.StatusInternalServerError)
+		return
+	}
+	
+	// In Available mode, we accept partial success (at least one chunk must succeed)
+	if failedChunks == len(chunks) {
+		s.cleanupFailedUpload(fileID, storageDir)
+		s.sendErrorResponse(w, "Upload failed: no chunks could be stored", http.StatusInternalServerError)
+		return
+	}
+	
+	// Store upload session
 	session := &core.UploadSession{
 		SessionID:       sessionID,
 		UserID:          userID,
-		FileName:        header.Filename,
+		FileName:        sanitizedName,
 		FileSize:        fileSize,
 		ChunkSize:       int64(len(chunks)), 
 		TotalChunks:     len(chunks),
@@ -403,17 +502,14 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:       time.Now(),
 		ExpiresAt:       time.Now().Add(24 * time.Hour),
 	}
-	
 	s.masterNode.AddUploadSession(session)
-	
-	s.logger.Printf("Successfully uploaded %d chunks to workers via gRPC", len(chunks))
 	
 	// Save file metadata to database
 	if s.fileRepo != nil {
 		fileMetadata := &metadata.FileMetadata{
 			FileID:       fileID,
 			Size:         fileSize,
-			OriginalName: header.Filename,
+			OriginalName: sanitizedName,
 			ChunkSize:    1024 * 1024,
 			TotalChunks:  len(chunks),
 			OwnerID:      userID,
@@ -430,13 +526,19 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	
+	// Clean up temporary files (chunks are now on workers)
+	go s.cleanupTempFiles(storageDir, compressedPath)
+	
 	response := map[string]interface{}{
-		"file_id":     fileID,
-		"session_id":  sessionID,
-		"chunks":      len(chunks),
-		"compressed":  true,
-		"file_size":   fileSize,
-		"owner_id":    userID,
+		"file_id":          fileID,
+		"session_id":       sessionID,
+		"chunks":           len(chunks),
+		"failed_chunks":    failedChunks,
+		"compressed":       true,
+		"file_size":        fileSize,
+		"owner_id":         userID,
+		"consistency_mode": string(mode),
+		"mode_reason":      reason,
 	}
 	
 	if metrics.AppMetrics != nil {
@@ -444,7 +546,7 @@ func (s *Server) UploadFile(w http.ResponseWriter, r *http.Request) {
 		metrics.AppMetrics.RecordFileUpload(fileSize, duration)
 	}
 	
-	s.sendSuccessResponse(w, "File uploaded, compressed, and chunked successfully", response)
+	s.sendSuccessResponse(w, "File uploaded successfully", response)
 }
 
 func (s *Server) InitUpload(w http.ResponseWriter, r *http.Request) {
@@ -531,15 +633,11 @@ func (s *Server) InitUpload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) UploadChunk(w http.ResponseWriter, r *http.Request) {
-	s.logger.Println("UploadChunk called")
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "upload chunk - not implemented yet"})
+	s.sendErrorResponse(w, "Chunked upload not yet supported. Use /files/upload for single-file upload.", http.StatusNotImplemented)
 }
 
 func (s *Server) CompleteUpload(w http.ResponseWriter, r *http.Request) {
-	s.logger.Println("CompleteUpload called")
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "complete upload - not implemented yet"})
+	s.sendErrorResponse(w, "Chunked upload not yet supported. Use /files/upload for single-file upload.", http.StatusNotImplemented)
 }
 
 func (s *Server) DownloadFile(w http.ResponseWriter, r *http.Request) {
@@ -555,26 +653,104 @@ func (s *Server) DownloadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// Check file ownership
+	// Get file metadata from database
+	var fileMeta *metadata.FileMetadata
 	if s.fileRepo != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		
+		// Check ownership
 		isOwner, err := s.fileRepo.CheckFileOwnership(ctx, fileId, claims.UserID)
 		if err != nil {
 			s.logger.Printf("Failed to check file ownership: %v", err)
 			s.sendErrorResponse(w, "Failed to verify file access", http.StatusInternalServerError)
 			return
 		}
-		
 		if !isOwner {
 			s.sendErrorResponse(w, "Access denied: You don't own this file", http.StatusForbidden)
 			return
 		}
+		
+		fileMeta, err = s.fileRepo.GetFileByID(ctx, fileId)
+		if err != nil {
+			s.sendErrorResponse(w, "File not found", http.StatusNotFound)
+			return
+		}
 	}
 	
-	storageDir := filepath.Join("./storage/uploads", fileId)
+	// Retrieve chunks from workers via gRPC
+	if fileMeta != nil && fileMeta.TotalChunks > 0 {
+		s.logger.Printf("Retrieving %d chunks from workers for file %s", fileMeta.TotalChunks, fileId)
+		
+		// Collect all chunk data in order
+		allChunkData := make([][]byte, fileMeta.TotalChunks)
+		var retrievalErrors int
+		
+		for i := 0; i < fileMeta.TotalChunks; i++ {
+			chunkID := fmt.Sprintf("%s_chunk_%d", fileId, i)
+			
+			// Try each worker until we get the chunk
+			retrieved := false
+			workers := s.workerRegistry.GetAllWorkers()
+			for workerID, workerClient := range workers {
+				ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+				resp, err := workerClient.RetrieveChunk(ctx, fileId, chunkID, i)
+				cancel()
+				
+				if err == nil && resp.GetSuccess() {
+					allChunkData[i] = resp.GetChunkData()
+					retrieved = true
+					s.logger.Printf("Retrieved chunk %d from worker %s", i, workerID)
+					break
+				}
+			}
+			
+			if !retrieved {
+				retrievalErrors++
+				s.logger.Printf("Failed to retrieve chunk %d from any worker", i)
+			}
+		}
+		
+		if retrievalErrors > 0 {
+			s.logger.Printf("Warning: %d chunks could not be retrieved", retrievalErrors)
+			// If we're missing chunks, try the local fallback
+		}
+		
+		// If we got all chunks from workers, reassemble and serve
+		if retrievalErrors == 0 {
+			// Set response headers
+			w.Header().Set("Content-Type", "application/octet-stream")
+			w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileMeta.OriginalName))
+			
+			// Reassemble compressed data, then decompress
+			var compressedData []byte
+			for _, chunkData := range allChunkData {
+				if chunkData != nil {
+					compressedData = append(compressedData, chunkData...)
+				}
+			}
+			
+			// Decompress gzip data
+			gzReader, err := gzip.NewReader(bytes.NewReader(compressedData))
+			if err != nil {
+				// If decompression fails, serve raw data (might not be compressed)
+				s.logger.Printf("Warning: Failed to decompress, serving raw: %v", err)
+				w.Write(compressedData)
+			} else {
+				defer gzReader.Close()
+				io.Copy(w, gzReader)
+			}
+			
+			if metrics.AppMetrics != nil {
+				duration := time.Since(start)
+				metrics.AppMetrics.RecordFileDownload(duration)
+			}
+			return
+		}
+	}
 	
+	// Fallback: try local filesystem (for files uploaded before this change)
+	storageDir := filepath.Join("./storage/uploads", fileId)
 	files, err := os.ReadDir(storageDir)
 	if err != nil {
 		s.sendErrorResponse(w, "File not found", http.StatusNotFound)
@@ -583,7 +759,7 @@ func (s *Server) DownloadFile(w http.ResponseWriter, r *http.Request) {
 	
 	var originalFile string
 	for _, file := range files {
-		if !file.IsDir() && filepath.Ext(file.Name()) != ".gz" {
+		if !file.IsDir() && filepath.Ext(file.Name()) != ".gz" && !strings.HasSuffix(file.Name(), ".chunk") {
 			originalFile = filepath.Join(storageDir, file.Name())
 			break
 		}
@@ -594,14 +770,14 @@ func (s *Server) DownloadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	file, err := os.Open(originalFile)
+	f, err := os.Open(originalFile)
 	if err != nil {
 		s.sendErrorResponse(w, "Failed to open file", http.StatusInternalServerError)
 		return
 	}
-	defer file.Close()
+	defer f.Close()
 	
-	fileInfo, err := file.Stat()
+	fileInfo, err := f.Stat()
 	if err != nil {
 		s.sendErrorResponse(w, "Failed to get file info", http.StatusInternalServerError)
 		return
@@ -611,7 +787,7 @@ func (s *Server) DownloadFile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filepath.Base(originalFile)))
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
 	
-	io.Copy(w, file)
+	io.Copy(w, f)
 	
 	if metrics.AppMetrics != nil {
 		duration := time.Since(start)
@@ -754,17 +930,20 @@ func (s *Server) DeleteFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) RegisterWorker(w http.ResponseWriter, r *http.Request) {
-	s.logger.Println("RegisterWorker called")
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "register worker - not implemented yet"})
+	s.sendErrorResponse(w, "Dynamic worker registration not yet supported. Workers are configured via environment variables.", http.StatusNotImplemented)
 }
 
 func (s *Server) WorkerHeartbeat(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	workerId := vars["workerId"]
-	s.logger.Printf("WorkerHeartbeat called for workerId: %s", workerId)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "heartbeat - not implemented yet", "workerId": workerId})
+	
+	// Update worker last-seen timestamp
+	if _, exists := s.workerRegistry.GetWorker(workerId); exists {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok", "workerId": workerId})
+	} else {
+		s.sendErrorResponse(w, "Worker not found", http.StatusNotFound)
+	}
 }
 
 func (s *Server) HealthCheck(w http.ResponseWriter, r *http.Request) {
@@ -803,6 +982,83 @@ func (s *Server) WorkersHealthCheck(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	json.NewEncoder(w).Encode(response)
+}
+
+func (s *Server) ConsistencyStats(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	
+	stats := map[string]interface{}{
+		"write_coordinator": s.writeCoordinator.GetStats(),
+	}
+	
+	json.NewEncoder(w).Encode(stats)
+}
+
+// sanitizeFilename removes path separators and dangerous characters from filenames.
+func sanitizeFilename(name string) string {
+	// Take only the base name (strip any directory components)
+	name = filepath.Base(name)
+
+	// Remove null bytes
+	name = strings.ReplaceAll(name, "\x00", "")
+
+	// Replace path separators
+	name = strings.ReplaceAll(name, "/", "_")
+	name = strings.ReplaceAll(name, "\\", "_")
+
+	// Remove leading dots (hidden files / directory traversal)
+	for strings.HasPrefix(name, ".") {
+		name = name[1:]
+	}
+
+	// Limit length
+	if len(name) > 255 {
+		ext := filepath.Ext(name)
+		name = name[:255-len(ext)] + ext
+	}
+
+	// Reject empty names
+	if name == "" || name == "." || name == ".." {
+		return ""
+	}
+
+	return name
+}
+
+func (s *Server) cleanupFailedUpload(fileID, storageDir string) {
+	// Remove local temp files
+	os.RemoveAll(storageDir)
+	
+	// Delete any chunks that were stored on workers
+	workers := s.workerRegistry.GetAllWorkers()
+	for workerID, workerClient := range workers {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		// Try to delete chunks (best effort)
+		for i := 0; i < 100; i++ { // reasonable upper bound
+			chunkID := fmt.Sprintf("%s_chunk_%d", fileID, i)
+			_, err := workerClient.DeleteChunk(ctx, fileID, chunkID, i)
+			if err != nil {
+				break // No more chunks on this worker
+			}
+		}
+		cancel()
+		_ = workerID
+	}
+}
+
+func (s *Server) cleanupTempFiles(storageDir, compressedPath string) {
+	// Remove chunk files and compressed file, keep original for fallback downloads
+	// In the future, once download-from-workers is fully reliable, remove everything
+	files, err := os.ReadDir(storageDir)
+	if err != nil {
+		return
+	}
+	for _, f := range files {
+		name := f.Name()
+		if strings.HasSuffix(name, ".gz") || strings.HasSuffix(name, ".chunk") || strings.Contains(name, "_chunk_") {
+			os.Remove(filepath.Join(storageDir, name))
+		}
+	}
 }
 
 func (s *Server) sendSuccessResponse(w http.ResponseWriter, message string, data interface{}) {

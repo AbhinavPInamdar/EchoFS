@@ -31,7 +31,7 @@ func main() {
 
 	log.Println("Starting EchoFS Consistency Controller...")
 
-	metricsClient := metrics.NewPrometheusClient(*metricsAddr)
+	metricsClient := metrics.NewRealPrometheusClient("http://" + *metricsAddr)
 
 	ctrl := controller.New(controller.Config{
 		MetricsClient:      metricsClient,

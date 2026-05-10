@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+package echofs.v1;
+
+option go_package = "echofs/proto/gen/v1";
+
+// Storage Node service — chunk operations and health.
+service StorageNodeService {
+    // Chunk operations
+    rpc StoreChunk(StoreChunkRequest) returns (StoreChunkResponse);
+    rpc RetrieveChunk(RetrieveChunkRequest) returns (RetrieveChunkResponse);
+    rpc DeleteChunk(DeleteChunkRequest) returns (DeleteChunkResponse);
+    rpc ListChunks(ListChunksRequest) returns (ListChunksResponse);
+
+    // Health and status
+    rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+    rpc GetStatus(WorkerStatusRequest) returns (WorkerStatusResponse);
+}
+
+// Chunk storage operations
+message StoreChunkRequest {
+    string file_id = 1;
+    string chunk_id = 2;
+    int32 chunk_index = 3;
+    bytes chunk_data = 4;
+    string md5_hash = 5;
+    int64 version = 6;
+}
+
+message StoreChunkResponse {
+    bool success = 1;
+    string message = 2;
+    string worker_id = 3;
+    string storage_key = 4;
+}
+
+message RetrieveChunkRequest {
+    string file_id = 1;
+    string chunk_id = 2;
+    int32 chunk_index = 3;
+}
+
+message RetrieveChunkResponse {
+    bool success = 1;
+    bytes chunk_data = 2;
+    string message = 3;
+    string md5_hash = 4;
+    int64 version = 5;
+}
+
+message DeleteChunkRequest {
+    string file_id = 1;
+    string chunk_id = 2;
+    int32 chunk_index = 3;
+}
+
+message DeleteChunkResponse {
+    bool success = 1;
+    string message = 2;
+    string worker_id = 3;
+}
+
+message ListChunksRequest {
+    string file_id = 1;
+}
+
+message ListChunksResponse {
+    repeated ChunkInfo chunks = 1;
+}
+
+message ChunkInfo {
+    string chunk_id = 1;
+    int32 chunk_index = 2;
+    int64 size = 3;
+    string md5_hash = 4;
+    int64 version = 5;
+}
+
+// Health and status
+message HealthCheckRequest {
+    string worker_id = 1;
+}
+
+message HealthCheckResponse {
+    bool healthy = 1;
+    string status = 2;
+    int64 timestamp = 3;
+    int64 available_space = 4;
+    int32 chunk_count = 5;
+}
+
+message WorkerStatusRequest {
+    string worker_id = 1;
+}
+
+message WorkerStatusResponse {
+    string worker_id = 1;
+    string address = 2;
+    int32 port = 3;
+    int64 available_space = 4;
+    int32 current_load = 5;
+    string status = 6;
+    int64 last_heartbeat = 7;
+    int32 chunk_count = 8;
+    double cpu_usage = 9;
+    double memory_usage = 10;
+}

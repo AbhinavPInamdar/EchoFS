@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+package echofs.v1;
+
+option go_package = "echofs/proto/gen/v1";
+
+// Consistency Orchestrator service — mode decisions and management.
+service OrchestratorService {
+    // Mode queries
+    rpc GetMode(GetModeRequest) returns (GetModeResponse);
+    rpc SetHint(SetHintRequest) returns (SetHintResponse);
+
+    // Object management
+    rpc RegisterObject(RegisterObjectRequest) returns (RegisterObjectResponse);
+
+    // Mode change stream (server-streaming for real-time updates)
+    rpc WatchModeChanges(WatchModeChangesRequest) returns (stream ModeChangeEvent);
+
+    // Admin operations
+    rpc SetGlobalOverride(SetGlobalOverrideRequest) returns (SetGlobalOverrideResponse);
+    rpc GetStatus(OrchestratorStatusRequest) returns (OrchestratorStatusResponse);
+}
+
+message GetModeRequest {
+    string object_id = 1;
+}
+
+message GetModeResponse {
+    string mode = 1;           // "C", "A", or "Hybrid"
+    int32 ttl_seconds = 2;
+    string reason = 3;
+    int64 timestamp = 4;
+}
+
+message SetHintRequest {
+    string object_id = 1;
+    string hint = 2;           // "Auto", "Strong", "Available"
+}
+
+message SetHintResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message RegisterObjectRequest {
+    string object_id = 1;
+    string name = 2;
+    int64 size = 3;
+}
+
+message RegisterObjectResponse {
+    bool success = 1;
+    string mode = 2;           // Initial mode assigned
+    string message = 3;
+}
+
+message WatchModeChangesRequest {
+    // Empty — subscribes to all mode changes
+}
+
+message ModeChangeEvent {
+    string object_id = 1;
+    string old_mode = 2;
+    string new_mode = 3;
+    string reason = 4;
+    int64 timestamp = 5;
+}
+
+message SetGlobalOverrideRequest {
+    string mode = 1;           // "C", "A", or "" (clear override)
+}
+
+message SetGlobalOverrideResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message OrchestratorStatusRequest {}
+
+message OrchestratorStatusResponse {
+    string global_override = 1;
+    int32 total_objects = 2;
+    int32 critical_keys = 3;
+    bool emergency_mode = 4;
+    map<string, int32> mode_distribution = 5;  // mode -> count
+}

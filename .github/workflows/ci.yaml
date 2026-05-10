@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: Backend/go.sum
+
+      - name: Install proto tools
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+      - name: Lint
+        working-directory: Backend
+        run: go vet ./...
+
+      - name: Build Backend
+        working-directory: Backend
+        run: go build ./...
+
+      - name: Build shared pkg
+        working-directory: pkg
+        run: go build ./...
+
+      - name: Build proto gen
+        working-directory: proto/gen
+        run: go build ./...
+
+      - name: Test
+        working-directory: Backend
+        run: go test ./... -v -count=1 -timeout=60s
+
+      - name: Proto drift check
+        run: |
+          ./scripts/proto-gen.sh
+          if ! git diff --quiet proto/gen/; then
+            echo "ERROR: Generated proto code is out of date. Run './scripts/proto-gen.sh' and commit."
+            git diff proto/gen/
+            exit 1
+          fi
+
+  build-images:
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        service:
+          - name: gateway
+            dockerfile: Backend/Dockerfile.gateway
+            context: Backend
+          - name: ingest
+            dockerfile: Backend/Dockerfile.ingest
+            context: Backend
+          - name: metadata
+            dockerfile: Backend/Dockerfile.metadata
+            context: Backend
+          - name: worker
+            dockerfile: Backend/Dockerfile.worker
+            context: Backend
+          - name: orchestrator
+            dockerfile: Backend/Dockerfile.orchestrator
+            context: Backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.service.context }}
+          file: ${{ matrix.service.dockerfile }}
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/echofs-${{ matrix.service.name }}:latest
+            ghcr.io/${{ github.repository_owner }}/echofs-${{ matrix.service.name }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

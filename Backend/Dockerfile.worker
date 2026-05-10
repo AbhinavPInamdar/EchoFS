@@ -1,0 +1,32 @@
+# Build stage
+FROM golang:1.24-alpine AS builder
+
+RUN apk add --no-cache git ca-certificates
+
+WORKDIR /app
+
+# Cache dependencies
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source
+COPY . .
+
+# Build the worker
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /worker ./cmd/worker1/
+
+# Runtime stage
+FROM alpine:3.20
+
+RUN apk add --no-cache ca-certificates tzdata iproute2
+
+WORKDIR /app
+
+COPY --from=builder /worker .
+
+# Create storage directory
+RUN mkdir -p /data/chunks
+
+EXPOSE 10081
+
+ENTRYPOINT ["/app/worker"]
