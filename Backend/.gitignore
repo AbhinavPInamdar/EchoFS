@@ -6,16 +6,16 @@ bin/
 *.so
 *.dylib
 
-# Compiled Go binaries (service names)
-gateway
-ingest
-metadata
-master
-server
-controller
-worker1
-worker2
-worker3
+# Compiled Go binaries (service names — only match root-level files)
+/gateway
+/ingest
+/metadata
+/master
+/server
+/controller
+/worker1
+/worker2
+/worker3
 
 # Test binary, built with `go test -c`
 *.test

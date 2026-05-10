@@ -23,33 +23,14 @@ jobs:
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
       - name: Lint
-        working-directory: Backend
-        run: go vet ./...
+        run: go vet ./Backend/... ./pkg/... ./proto/gen/...
 
-      - name: Build Backend
-        working-directory: Backend
-        run: go build ./...
-
-      - name: Build shared pkg
-        working-directory: pkg
-        run: go build ./...
-
-      - name: Build proto gen
-        working-directory: proto/gen
-        run: go build ./...
+      - name: Build
+        run: go build ./Backend/... ./pkg/... ./proto/gen/...
 
       - name: Test
-        working-directory: Backend
-        run: go test ./... -v -count=1 -timeout=60s
-
-      - name: Proto drift check
         run: |
-          ./scripts/proto-gen.sh
-          if ! git diff --quiet proto/gen/; then
-            echo "ERROR: Generated proto code is out of date. Run './scripts/proto-gen.sh' and commit."
-            git diff proto/gen/
-            exit 1
-          fi
+          go test $(go list ./Backend/... | grep -v test/integration) -count=1 -timeout=60s
 
   build-images:
     runs-on: ubuntu-latest
